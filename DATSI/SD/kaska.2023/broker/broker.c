@@ -17,68 +17,94 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
-
 #include "comun.h"
 #include "map.h"
 #include "queue.h"
 
+#define STRING_MAX ((1 << 16) - 2)
 //========GLOBAL VARIABLES & STRUCTS==========
 
 int server_fd;
+struct sockaddr_in dir;
+int opcion;
+
+// Data structures
+
+map *table_clients;
+map *table_topics;
 
 // information given to the working thread
-typedef struct thread_info {
+typedef struct thread_info
+{
     int socket;
 } thread_info;
 
-typedef struct Topic {
-    char* topic_name;
-    map* subscribers;
+// Topic struct
+typedef struct Topic
+{
+    char *name; // key
+    queue *messages;
+    map *subscribers;
 } Topic;
 
-//========FUNCTION HEADERS==========
-Topic* topic(char* name);
+// Message struct
+typedef struct Message
+{
+    void *body;
+    int size;
+    char *topic_name;
+    int subbed_clients;
+} Message;
 
-void *servicio(void *arg);
+// Client struct
+typedef struct Sub
+{
+    char *SID; // key
+    int offset;
+    map *sub_topics;
+} Sub;
 
 //========STATIC FUNCTIONS==========
 
 /**
  * @brief inicializa el socket y lo prepara para aceptar conexiones
- * 
- * @param port 
- * @return int 
+ *
+ * @param port
+ * @return int
  */
-static int init_socket_server(const char * port) {
-    int s;
-    struct sockaddr_in dir;
-    int opcion=1;
+static int init_socket_server(const char *port)
+{
+    opcion = 1;
     // socket stream para Internet: TCP
-    if ((s=socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+    if ((server_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+    {
         perror("error creando socket");
         return -1;
     }
     // Para reutilizar puerto inmediatamente si se rearranca el servidor
-    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opcion, sizeof(opcion))<0){
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opcion, sizeof(opcion)) < 0)
+    {
         perror("error en setsockopt");
         return -1;
     }
     // asocia el socket al puerto especificado
-    dir.sin_addr.s_addr=INADDR_ANY;
-    dir.sin_port=htons(atoi(port));
-    dir.sin_family=PF_INET;
-    if (bind(s, (struct sockaddr *)&dir, sizeof(dir)) < 0) {
+    dir.sin_addr.s_addr = INADDR_ANY;
+    dir.sin_port = htons(atoi(port));
+    dir.sin_family = PF_INET;
+    if (bind(server_fd, (struct sockaddr *)&dir, sizeof(dir)) < 0)
+    {
         perror("error en bind");
-        close(s);
+        close(server_fd);
         return -1;
     }
     // establece el nº máx. de conexiones pendientes de aceptar
-    if (listen(s, 5) < 0) {
+    if (listen(server_fd, 5) < 0)
+    {
         perror("error en listen");
-        close(s);
+        close(server_fd);
         return -1;
     }
-    return s;
+    return server_fd;
 }
 
 /*
@@ -87,24 +113,74 @@ static int init_socket_server(const char * port) {
 
 /**
  * @brief Topic constructor
- * @return Topic* new topic 
+ * @return Topic* new topic
  */
-Topic* topic(char* name){
-    Topic* newTopic = malloc(sizeof(struct Topic));
-    newTopic->topic_name = strdup(name);
-    newTopic->subscribers = map_create(key_string,0);
+Topic *new_topic(char *name)
+{
+    Topic *newTopic = malloc(sizeof(struct Topic));
+    newTopic->name = strdup(name);
+    newTopic->messages = queue_create(0);
+    newTopic->subscribers = map_create(key_string, 0);
     return newTopic;
 }
 
+/**
+ * @brief Message constructor
+ * @return Message* new topic
+ */
+Message *new_msg(int size, char *topic_name)
+{
+    Message *msg = malloc(sizeof(struct Message));
+    msg->topic_name = strdup(topic_name);
+    msg->subbed_clients = 0;
+    msg->body = malloc(size);
+    msg->size = size;
+    return msg;
+}
+
+/**
+ * @brief Destroys a Message pointer
+ */
+void free_msg(Message *msg)
+{
+    free(msg->body);
+    free(msg);
+}
 
 /*
         SERVER FUNCTIONS
 */
 
-void exit_handler(){
+void exit_handler()
+{
     close(server_fd);
     puts("\n\n\tCLOSING BROKER\n\n");
     exit(0);
+}
+
+/**
+ * @brief Get the topic name object
+ *
+ * @param client_fd
+ * @return char* topic_name
+ */
+char *get_topic_name(int client_fd)
+{
+    int raw_size, size;
+    char *topic_name;
+
+    // 1. Get string size
+    recv(client_fd, &raw_size, sizeof(int), MSG_WAITALL);
+    size = ntohl(raw_size);
+
+    if (size > STRING_MAX)
+        size = STRING_MAX;
+
+    topic_name = malloc(size + 1);
+    // 2. Get topic name
+    recv(client_fd, topic_name, size, MSG_WAITALL);
+    topic_name[size] = '\0';
+    return topic_name;
 }
 
 /**
@@ -112,48 +188,36 @@ void exit_handler(){
  * @include recv
  * @param arg thread_info struct
  */
-void *servicio(void *arg){
-    int entero;
-    int longitud;
-    char *string;
-    unsigned char *array_binario;
-    thread_info *thinf = arg; // argumento recibido
- 
-    // recv puede devolver menos datos de los solicitados
-    // (misma semántica que el "pipe"), pero con MSG_WAITALL espera hasta que
-    // se hayan recibido todos los datos solicitados o haya habido un error.
-    while (1) {
-        if (recv(thinf->socket, &entero, sizeof(int), MSG_WAITALL)!=sizeof(int))
-            break; // si recv devuelve <=0 el cliente ha cortado la conexión;
-        entero = ntohl(entero); // cada "petición" comienza con un entero
-        printf("Recibido entero: %d\n", entero);
+void *service(void *arg)
+{
+    int code, response;
+    thread_info *thinf = arg;
 
-        // luego llega el string, que viene precedido por su longitud
-        if (recv(thinf->socket, &longitud, sizeof(int), MSG_WAITALL)!=sizeof(int))
-            break;
-        longitud = ntohl(longitud);
-        string = malloc(longitud+1); // +1 para el carácter nulo
-        // ahora sí llega el string
-        if (recv(thinf->socket, string, longitud, MSG_WAITALL)!=longitud)
-            break;
-        string[longitud]='\0';       // añadimos el carácter nulo
-        printf("Recibido string: %s\n", string);
+    while (recv(thinf->socket, &code, sizeof(int), MSG_WAITALL) == sizeof(int))
+    {
+        // Parsing the request
+        code = ntohl(code);
+        printf("Recibido operation code: %d\n", code);
 
-        // y finalmente llega el array binario precedido de su longitud
-        if (recv(thinf->socket, &longitud, sizeof(int), MSG_WAITALL)!=sizeof(int))
+        switch (code)
+        {
+        // new_topic
+        case 0:
+            char *topic_name = get_topic_name(thinf->socket);
+            Topic* topic = new_topic(topic_name);
+            response=map_put(table_topics, topic_name, topic);
             break;
-        longitud = ntohl(longitud);
-        array_binario = malloc(longitud); // no usa un terminador
-	    // llega el array
-        if (recv(thinf->socket, array_binario, longitud, MSG_WAITALL)!=longitud)
+        // n_topics
+        case 1:
+            response= htonl(map_size(table_topics));
             break;
-        printf("Recibido array_binario: ");
-        for (int i=0; i<longitud; i++) printf("%02x", array_binario[i]);
-        printf("\n");
+        default:
+            fprintf(stderr, "Operation not allowed with code %d\n", code);
+            break;
+        }
 
-	// envía un entero como respuesta
-	int res = htonl(0);
-	write(thinf->socket, &res, sizeof(int)); 
+        // envía un code como respuesta
+        send(thinf->socket, &response, sizeof(response), 0);
     }
     close(thinf->socket);
     return NULL;
@@ -161,25 +225,29 @@ void *servicio(void *arg){
 
 /**
  * @brief Main thread function
- * 
- * @param argc 
- * @param argv 
- * @return 0 on success | -1 for error 
+ *
+ * @param argc
+ * @param argv
+ * @return 0 on success | -1 for error
  */
-int main(int argc, char *argv[]) {
-    int s, s_conec;
+int main(int argc, char *argv[])
+{
+    int s_conec;
     unsigned int tam_dir;
     struct sockaddr_in dir_cliente;
 
-    if(signal(SIGINT, &exit_handler) ==SIG_ERR){
+    if (signal(SIGINT, &exit_handler) == SIG_ERR)
+    {
         exit(EXIT_FAILURE);
     }
-    if (argc!=2) {
+    if (argc != 2)
+    {
         fprintf(stderr, "Uso: %s puerto\n", argv[0]);
         return -1;
     }
     // inicializa el socket y lo prepara para aceptar conexiones
-    if ((s=init_socket_server(argv[1])) < 0) return -1;
+    if ((server_fd = init_socket_server(argv[1])) < 0)
+        return -1;
 
     // prepara atributos adecuados para crear thread "detached"
     pthread_t thid;
@@ -187,19 +255,29 @@ int main(int argc, char *argv[]) {
     pthread_attr_init(&atrib_th); // evita pthread_join
     pthread_attr_setdetachstate(&atrib_th, PTHREAD_CREATE_DETACHED);
 
-    while(1) {
-        tam_dir=sizeof(dir_cliente);
+    // inicializa estructuras de datos
+
+    if ((table_topics = map_create(key_string, 0)) == NULL ||
+        (table_clients = map_create(key_string, 0)) == NULL)
+    {
+        exit(EXIT_FAILURE);
+    }
+
+    while (1)
+    {
+        tam_dir = sizeof(dir_cliente);
         // acepta la conexión
-        if ((s_conec=accept(s, (struct sockaddr *)&dir_cliente, &tam_dir))<0){
+        if ((s_conec = accept(server_fd, (struct sockaddr *)&dir_cliente, &tam_dir)) < 0)
+        {
             perror("error en accept");
-            close(s);
+            close(server_fd);
             return -1;
         }
-        // crea el thread de servicio
+        // crea el thread de service
         thread_info *thinf = malloc(sizeof(thread_info));
-        thinf->socket=s_conec;
-        pthread_create(&thid, &atrib_th, servicio, thinf);
+        thinf->socket = s_conec;
+        pthread_create(&thid, &atrib_th, service, thinf);
     }
-    close(s); // cierra el socket general
+    close(server_fd); // cierra el socket general
     return 0;
 }
