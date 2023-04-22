@@ -1,0 +1,60 @@
+
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+<title>Kaska: persistencia de mensajes</title>
+</head>
+<body>
+
+<h1>Kaska: persistencia de mensajes (parte extra de la práctica)</h1>
+En este documento se plantea una extensión de la práctica que permite obtener una nota adicional de <b>2 puntos</b>, que solo podrá ser obtenida si la parte obligatoria pasa todas las pruebas.
+<p>
+<b>Aviso</b>: antes de afrontar esta práctica optativa, valore el esfuerzo que requiere y asegúrese de que no le pertuba la realización de actividades obligatorias de esta u otras asignaturas.
+
+<h2>Objetivo de la extensión de la práctica</h2>
+En la parte final de la práctica obligatoria, se proporciona la funcionalidad que permite que los clientes hagan persistentes en el sistema de ficheros del equipo donde ejecuta el <i>broker</i> los <i>offsets</i> de los temas a los que están suscritos. Esta funcionalidad hace posible que cuando se reinicia un cliente pueda continuar su trabajo donde lo dejó. Sin embargo, no sirve ante un reinicio del <i>broker</i> ya que se pierden los mensajes. En esta extensión, nos planteamos hacer persistentes los mensajes, pero sin que esto apenas repercuta en la eficiencia en la gestión de los mismos gracias al uso de la proyección de archivos (<tt>mmap</tt>).
+<p>
+A continuación, se describe la nueva funcionalidad que hay que añadir a la práctica, que corresponde solo al <i>broker</i>, y el modo de operación de la misma.
+<p>
+En primer lugar, dado que se van a hacer persistentes dos tipos de información, vamos a reorganizar la estructura de directorios en el <i>broker</i>:
+<ul>
+<li>Dentro del directorio recibido como argumento se creará un directorio <tt>commits</tt> para los <i>offsets</i> guardados, tal como se hace en la parte básica, y un directorio <tt>data</tt> para almacenar los mensajes.
+<li>En el directorio <tt>data</tt>, habrá un fichero por cada tema creado con un tamaño de 1GiB (<tt>#define FILE_SIZE 1&lt;&lt;30</tt>). Si tiene alguna limitación en su cuenta use un tamaño menor. Kafka usa esta misma estrategia, pero cuando se llena un fichero, le asigna al tema uno nuevo, denominando segmento a cada uno de ellos.
+<li>El fichero se accederá con la técnica de proyección de archivos asignándole con <tt>ftruncate</tt> el tamaño indicado que hace que el fichero no gaste espacio en disco hasta que no vaya almacenando mensajes.
+<li>Como comprobación de seguridad, se almacenará en los 4 primeros bytes del archivo la secuencia "KASK" (su <i>magic number</i>).
+<li>El resto del fichero puede organizarlo como considere oportuno, aunque, lógicamente, almacenará la longitud y contenido de cada mensaje enviado a ese tema.
+<li>El uso de la proyección de archivos permite que el acceso a los mensajes sea a todos los efectos tan eficiente como en la parte básica, no realizándose operaciones de lectura y escritura en el sistema de ficheros. Además, hace posible que el código en el <i>broker</i> que realiza el tratamiento de las operaciones de envío y de lectura no se vea afectado prácticamente por el cambio: en la cola almacenaremos la referencia al mensaje, que, en la parte básica, corresponderá al <i>heap</i>, mientras que en la extra apuntará a una dirección de la región de memoria asociada al fichero. Nótese que debe seguir cumpliéndose un comportamiento <i>zero-copy</i> en el tratamiento de los mensajes.
+</ul>
+Hay dos partes principales en esta nueva funcionalidad: lograr que los mensajes sean persistentes y recrear el estado cuando arranca el <i>broker</i>.
+<p>Con respecto a la persistencia, se debería tener en cuenta lo siguiente:
+<ul>
+<li>Al crear un tema, además de la labor que se realizaba en la parte básica, hay que crear el fichero con el nombre del tema, asignarle el espacio especificado (<tt>FILE_SIZE</tt>) y proyectarlo.
+<li>Se debe incluir al principio el <i>magic number</i>.
+<li>Deberá incluir algún tipo de información en el descriptor del tema que permita asociarlo con el fichero. Por ejemplo, se puede almacenar la dirección donde se almacenará el próximo mensaje que se reciba.
+<li>En la recepción de un mensaje, para asegurar el <i>zero copy</i> en la gestión de los mensajes, se debe leer directamente del socket en la zona correspondiente de la región asociada al fichero proyectado.
+</ul>
+En cuanto a recuperar el estado cuando se reinicia:
+<ul>
+<li>Hay que hacerlo antes de empezar el bucle de servicio.
+<li>Se deben recorrer todas las entradas del directorio tratando solamente
+aquellas que correspondan a ficheros regulares que contengan el
+<i>magic number</i>.
+<li>Por cada uno de esos ficheros, habrá que abrirlo y proyectarlo
+creando el tema correspondiente en el mapa e ir identificando en el fichero
+proyectado los sucesivos mensajes añadiendo una entrada en la cola
+del mapa por cada uno de los mensajes de manera que en el descriptor
+se guarde la dirección del mensaje en la región del fichero proyectado.
+</ul>
+
+
+</p><h2>Entrega de la práctica</h2>
+
+Se realizará en la máquina <tt>triqui</tt>, usando el mandato:
+
+<pre>entrega.sd kaska-extra.2023
+</pre>
+
+<p>
+Este mandato recogerá los mismos ficheros que para la práctica básica.
+
+
+</body></html>

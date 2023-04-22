@@ -1,0 +1,1182 @@
+
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+<title>Kaska: guía de pruebas</title>
+</head>
+<body>
+
+<h1>Kaska: guía de pruebas</h1>
+El objetivo de este documento, que complementa al enunciado de la práctica, es plantear una colección de pruebas del código de la práctica. Aunque la práctica tendrá un corrector automático, que se activará a mediados del mes de abril, consideramos que es importante desde el punto de vista didáctico que el alumno realice las pruebas del código que ha desarrollado.
+
+<h2>Ejecución de pruebas del sistema</h2>
+Puede optar por ejecutar la práctica en distintos entornos:
+<ul>
+<li>Usar los distintos nodos de <tt>triqui.fi.upm.es</tt> (<tt>triqui1</tt>, <tt>triqui2</tt>, <tt>triqui3</tt> y <tt>triqui4</tt>). Dado que todos los nodos comparten los ficheros de las cuentas, no es necesario copiar el código entre los nodos y se puede desplegar directamente el <i>broker</i> en un nodo y cada cliente en un nodo diferente. Basta con que la variable de entorno <tt>BROKER_HOST</tt> en cada cliente contenga el nombre del equipo donde ejecuta el <i>broker</i>.
+<li>Usar varios equipos propios, ya sean reales o virtuales.
+<li>Trabajar en uno único equipo y especificar <tt>localhost</tt> en la variable <tt>BROKER_HOST</tt>.
+</ul>
+
+<h3>Fase 1 (2 puntos): Creación de temas</h3>
+Después de compilar el <i>broker</i>, ejecutando <tt>make</tt> en su directorio, lo arrancamos especificando un puerto cualquiera que no esté ocupado:
+<pre>
+./broker 12345
+</pre>
+Compilamos el cliente, haciendo <tt>make</tt> en el directorio <tt>clients</tt> y lo arrancamos, ya sea poniendo previamente las variables de entorno:
+<pre>
+export BROKER_PORT=12345
+export BROKER_HOST=localhost # suponemos el tercer escenario
+./test
+</pre>
+O pasándoselas en la línea de mandatos:
+<pre>
+cd clients
+BROKER_HOST=localhost BROKER_PORT=12345 ./test
+</pre>
+La traza de la prueba sería la siguiente (puede probar cada una de las operaciones en el mismo o en distinto cliente):
+<ul>
+<li>Creo un tema <tt>tema1</tt> (opción <tt>C</tt>: usa <tt>create_topic</tt>).
+<li>Creo un tema <tt>tema2</tt>.
+<li>Creo un tema <tt>tema3</tt>.
+<li>Creo de nuevo <tt>tema2</tt>: debe de dar un error.
+<li>Compruebo el número de temas (opción <tt>N</tt>: usa <tt>ntopics</tt>): debe haber 3.
+</ul>
+A continuación, se muestra la traza de la misma:
+<pre>
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema1
+se ha creado el tema tema1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema2
+se ha creado el tema tema2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema3
+se ha creado el tema tema3
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema2
+error en create_topic
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+N
+en el sistema hay 3 temas
+</pre>
+A la hora de depurar la práctica, además de los depuradores habituales, puede usar el mandato <tt>strace</tt> para obtener las llamadas al sistema que realizan los procesos. Para ello, puede ejecutar los mandatos de la siguiente forma:
+<pre>
+strace -f -o traza ./broker 23456
+strace -f -o traza ./test
+</pre>
+<i>A posteriori</i>, puede editar los ficheros <tt>traza</tt> para buscar la información de interés en cada momento. Por ejemplo, puedo buscar la llamada <tt>writev</tt> en el cliente para ver qué información ha enviado.
+
+<h3>Fase 2 (2 puntos): Envío de mensajes</h3>
+
+La traza de la prueba sería la siguiente (puede probar cada una de las operaciones en el mismo o en distinto cliente):
+<ul>
+<li>Creo un tema <tt>tema1</tt> (opción <tt>C</tt>: usa <tt>create_topic</tt>).
+<li>Creo un tema <tt>tema2</tt>.
+<li>Envío un mensaje de longitud 1 al primer tema (opción <tt>M</tt>: usa <tt>send_msg</tt>).
+<li>Envío un mensaje de longitud 2 al segundo tema.
+<li>Envío un mensaje de longitud 3 al primer tema.
+<li>Envío un mensaje de longitud 4 al segundo tema conteniendo un carácter nulo (^@) para comprobar el tratamiento de mensajes con contenido binario. <b>Para introducir ese carácter nulo, teclee la tecla <tt>Control</tt> y una arroba</b>.
+<li>Envío un mensaje a un tema inexistente: debe dar error.
+<li>Obtengo la longitud del mensaje en el <i>offset</i> 0 del primer tema (opción <tt>L</tt>: usa <tt>msg_length</tt>): debe ser 1.
+<li>Obtengo la longitud del mensaje en el <i>offset</i> 0 del segundo tema: debe ser 2.
+<li>Obtengo la longitud del mensaje en el <i>offset</i> 1 del primer tema: debe ser 3.
+<li>Obtengo la longitud del mensaje en el <i>offset</i> 1 del segundo tema: debe ser 4.
+<li>Obtengo la longitud del mensaje en el <i>offset</i> 0 de un tema inexistente: debe dar error.
+<li>Obtengo la longitud del mensaje en el <i>offset</i> 3 del primer tema: debe ser 0 ya que no hay un mensaje en esa posición.
+<li>Obtengo el <i>offset</i> en el <i>broker</i> (es decir, el tamaño de la cola de mensajes) del primer tema (opción <tt>E</tt>: usa <tt>end_offset</tt>): debe ser 2.
+<li>Obtengo el <i>offset</i> en el <i>broker</i> del segundo tema: debe ser 2.
+<li>Obtengo el <i>offset</i> en el <i>broker</i> de un tema inexistente: debe dar error.
+</ul>
+A continuación, se muestra la traza de la misma:
+<pre>
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema1
+se ha creado el tema tema1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema2
+se ha creado el tema tema2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema1
+Introduzca la longitud del mensaje: 1
+Introduzca el mensaje: A
+se ha enviando mensaje de tamaño 1 al tema tema1 que queda ubicado en offset 0
+	mensaje: A (hexadecimal: 41)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema2
+Introduzca la longitud del mensaje: 2
+Introduzca el mensaje: BC
+se ha enviando mensaje de tamaño 2 al tema tema2 que queda ubicado en offset 0
+	mensaje: BC (hexadecimal: 4243)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema1
+Introduzca la longitud del mensaje: 3
+Introduzca el mensaje: DEF
+se ha enviando mensaje de tamaño 3 al tema tema1 que queda ubicado en offset 1
+	mensaje: DEF (hexadecimal: 444546)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema2
+Introduzca la longitud del mensaje: 4
+Introduzca el mensaje: GH^@I
+se ha enviando mensaje de tamaño 4 al tema tema2 que queda ubicado en offset 1
+	mensaje: GHI (hexadecimal: 47480049)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema_noexiste
+Introduzca la longitud del mensaje: 1
+Introduzca el mensaje: Z
+error en send_msg
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+L
+Introduzca el nombre del tema: tema1
+Introduzca el offset: 0
+la longitud del mensaje 0 del tema tema1 es 1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+L
+Introduzca el nombre del tema: tema2
+Introduzca el offset: 0
+la longitud del mensaje 0 del tema tema2 es 2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+L
+Introduzca el nombre del tema: tema1
+Introduzca el offset: 1
+la longitud del mensaje 1 del tema tema1 es 3
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+L
+Introduzca el nombre del tema: tema2
+Introduzca el offset: 1
+la longitud del mensaje 1 del tema tema2 es 4
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+L
+Introduzca el nombre del tema: tema_noexiste
+Introduzca el offset: 0
+error en msg_length
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+L
+Introduzca el nombre del tema: tema1
+Introduzca el offset: 3
+la longitud del mensaje 3 del tema tema1 es 0
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+E
+Introduzca el nombre del tema: tema1
+el offset/longitud de la cola del tema tema1 es 2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+E
+Introduzca el nombre del tema: tema2
+el offset/longitud de la cola del tema tema2 es 2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+E
+Introduzca el nombre del tema: tema_noexiste
+error en end_offset
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+</pre>
+
+<h3>Fase 3 (2 puntos): suscripción</h3>
+La traza de la prueba sería la siguiente:
+<ul>
+<li>Creo un tema <tt>tema1</tt> (opción <tt>C</tt>: usa <tt>create_topic</tt>).
+<li>Creo un tema <tt>tema2</tt>.
+<li>Creo un tema <tt>tema3</tt>.
+<li>Creo un tema <tt>tema2</tt>.
+<li>Envío un mensaje de longitud 1 al primer tema (opción <tt>M</tt>: usa <tt>send_msg</tt>).
+<li>Envío un mensaje de longitud 1 al cuarto tema.
+<li>Envío un mensaje de longitud 1 al cuarto tema.
+<li>Se suscribe a 5 temas (1 repetido y 1 no existe): <tt>tema1</tt>, <tt>tema2</tt>, <tt>tema_noexiste</tt>, <tt>tema2</tt> y <tt>tema4</tt> (opción <tt>S</tt>: usa <tt>subscribe</tt>): debe devolver 3
+<li>Se suscribe a <tt>tema3</tt>: error ya hay suscripciones.
+<li>Envío un mensaje de longitud 1 al primer tema.
+<li>Obtengo <i>offset</i> local del primer tema (opción <tt>T</tt>: usa <tt>position</tt>): debe devolver 1.
+<li>Obtengo <i>offset</i> local del segundo tema: debe devolver 0.
+<li>Obtengo <i>offset</i> local del cuarto tema: debe devolver 2.
+<li>Obtengo <i>offset</i> local de tema inexistente: debe devolver error.
+<li>Obtengo <i>offset</i> local de tema no suscrito (<tt>tema3</tt>): debe devolver error.
+<li>Muevo <i>offset</i> local del primer tema a 0 (opción <tt>K</tt>: usa <tt>seek</tt>).
+<li>Muevo <i>offset</i> local del cuarto tema a 1.
+<li>Muevo <i>offset</i> local de tema inexistente a 0: debe dar un error.
+<li>Muevo <i>offset</i> local de tema no suscrito a 0: debe dar un error.
+<li>Obtengo <i>offset</i> local del primer tema (opción <tt>T</tt>: usa <tt>position</tt>): debe devolver 0.
+<li>Obtengo <i>offset</i> local del segundo tema: debe devolver 0.
+<li>Obtengo <i>offset</i> local del cuarto tema: debe devolver 1.
+<li>Se da de baja (opción <tt>U</tt>: usa <tt>unsubscribe</tt>).
+<li>Obtengo <i>offset</i> local del cuarto tema: debe dar error.
+<li>Se da de baja: debe dar error.
+<li>Se suscribe a 3 temas: <tt>tema1</tt>, <tt>tema2</tt> y <tt>tema4</tt>: debe devolver 3.
+<li>Obtengo <i>offset</i> local del primer tema (opción <tt>T</tt>: usa <tt>position</tt>): debe devolver 2.
+<li>Obtengo <i>offset</i> local del segundo tema: debe devolver 0.
+<li>Obtengo <i>offset</i> local del cuarto tema: debe devolver 2.
+</ul>
+A continuación, se muestra la traza de la misma:
+<pre>
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema1
+se ha creado el tema tema1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema2
+se ha creado el tema tema2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema3
+se ha creado el tema tema3
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema4
+se ha creado el tema tema4
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema1
+Introduzca la longitud del mensaje: 1
+Introduzca el mensaje: A
+se ha enviando mensaje de tamaño 1 al tema tema1 que queda ubicado en offset 0
+	mensaje: A (hexadecimal: 41)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema4
+Introduzca la longitud del mensaje: 1
+Introduzca el mensaje: B
+se ha enviando mensaje de tamaño 1 al tema tema4 que queda ubicado en offset 0
+	mensaje: B (hexadecimal: 42)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema4
+Introduzca la longitud del mensaje: 1
+Introduzca el mensaje: C
+se ha enviando mensaje de tamaño 1 al tema tema4 que queda ubicado en offset 1
+	mensaje: C (hexadecimal: 43)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+S
+Introduzca el número de temas: 5
+Introduzca el nombre del tema: tema1
+Introduzca el nombre del tema: tema2
+Introduzca el nombre del tema: tema_noexiste
+Introduzca el nombre del tema: tema2
+Introduzca el nombre del tema: tema4
+después de subscribe: nombre tema1 offset 1
+después de subscribe: nombre tema2 offset 0
+después de subscribe: nombre tema4 offset 2
+se ha suscrito a 3 temas
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+S
+Introduzca el número de temas: 1
+Introduzca el nombre del tema: tema3
+error en suscripción de temas
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema1
+Introduzca la longitud del mensaje: 1
+Introduzca el mensaje: D
+se ha enviando mensaje de tamaño 1 al tema tema1 que queda ubicado en offset 1
+	mensaje: D (hexadecimal: 44)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema1
+offset en el cliente para el tema tema1 es 1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema2
+offset en el cliente para el tema tema2 es 0
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema3
+error en position
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema4
+offset en el cliente para el tema tema4 es 2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema_noexiste
+error en position
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+K
+Introduzca el nombre del tema: tema1
+Introduzca el offset: 0
+nuevo offset 0 en el cliente para el tema tema1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+K
+Introduzca el nombre del tema: tema4
+Introduzca el offset: 1
+nuevo offset 1 en el cliente para el tema tema4
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+K
+Introduzca el nombre del tema: tema_noexiste
+Introduzca el offset: 0
+error en seek
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+K
+Introduzca el nombre del tema: tema3
+Introduzca el offset: 0
+error en seek
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema1
+offset en el cliente para el tema tema1 es 0
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema2
+offset en el cliente para el tema tema2 es 0
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema4
+offset en el cliente para el tema tema4 es 1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+U
+unsubscribe OK
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema4
+el mapa especificado no es válido
+error en position
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+U
+error en unsubscribe
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+S
+Introduzca el número de temas: 3
+Introduzca el nombre del tema: tema1
+Introduzca el nombre del tema: tema2
+Introduzca el nombre del tema: tema4
+después de subscribe: nombre tema1 offset 2
+después de subscribe: nombre tema2 offset 0
+después de subscribe: nombre tema4 offset 2
+se ha suscrito a 3 temas
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema1
+offset en el cliente para el tema tema1 es 2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema2
+offset en el cliente para el tema tema2 es 0
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema4
+offset en el cliente para el tema tema4 es 2
+</pre>
+<h3>Fase 4 (2 puntos): lectura de mensajes (<tt>poll</tt>)</h3>
+La traza de la prueba sería la siguiente:
+<ul>
+<li>Creo un tema <tt>tema1</tt> (opción <tt>C</tt>: usa <tt>create_topic</tt>).
+<li>Creo un tema <tt>tema2</tt>.
+<li>Creo un tema <tt>tema3</tt>.
+<li>Envío un mensaje de longitud 2 (1A) al primer tema (opción <tt>M</tt>: usa <tt>send_msg</tt>).
+<li>Se suscribe a los 3 temas: <tt>tema1</tt>, <tt>tema2</tt> y <tt>tema3</tt> (opción <tt>S</tt>: usa <tt>subscribe</tt>): debe devolver 3
+<li>Lee mensaje (opción <tt>P</tt>: usa <tt>poll</tt>): devuelve 0 porque no hay mensajes disponibles para ese proceso.
+<li>Envío un mensaje de longitud 2 (1B) al primer tema.
+<li>Envío un mensaje de longitud 2 (3A) al tercer tema.
+<li>Envío un mensaje de longitud 2 (3B) al tercer tema.
+<li>Lee mensaje (<tt>poll</tt>): devuelve mensaje 1B.
+<li>Envío un mensaje de longitud 2 (1C) al primer tema.
+<li>Lee mensaje (<tt>poll</tt>): devuelve mensaje 3A.
+<li>Lee mensaje (<tt>poll</tt>): devuelve mensaje 1C.
+<li>Lee mensaje (<tt>poll</tt>): devuelve mensaje 3B.
+<li>Lee mensaje (<tt>poll</tt>): devuelve 0 porque no hay mensajes disponibles para ese proceso.
+<li>Obtengo <i>offset</i> local del primer tema (opción <tt>T</tt>: usa <tt>position</tt>): debe devolver 3.
+<li>Obtengo <i>offset</i> local del segundo tema: debe devolver 0.
+<li>Obtengo <i>offset</i> local del cuarto tema: debe devolver 2.
+<li>Muevo <i>offset</i> local del primer tema a 0 (opción <tt>K</tt>: usa <tt>seek</tt>).
+<li>Lee mensaje (<tt>poll</tt>): devuelve mensaje 1A.
+<li>Lee mensaje (<tt>poll</tt>): devuelve mensaje 1B.
+<li>Lee mensaje (<tt>poll</tt>): devuelve mensaje 1C.
+<li>Lee mensaje (<tt>poll</tt>): devuelve 0 porque no hay mensajes disponibles para ese proceso.
+<li>Obtengo <i>offset</i> local del primer tema (opción <tt>T</tt>: usa <tt>position</tt>): debe devolver 3.
+</ul>
+A continuación, se muestra la traza de la misma:
+<pre>
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema1
+se ha creado el tema tema1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema2
+se ha creado el tema tema2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema3
+se ha creado el tema tema3
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema1
+Introduzca la longitud del mensaje: 2
+Introduzca el mensaje: 1A
+se ha enviando mensaje de tamaño 2 al tema tema1 que queda ubicado en offset 0
+	mensaje: 1A (hexadecimal: 3141)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+S
+Introduzca el número de temas: 3
+Introduzca el nombre del tema: tema1
+Introduzca el nombre del tema: tema2
+Introduzca el nombre del tema: tema3
+después de subscribe: nombre tema1 offset 1
+después de subscribe: nombre tema2 offset 0
+después de subscribe: nombre tema3 offset 0
+se ha suscrito a 3 temas
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+P
+no hay mensajes
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema1
+Introduzca la longitud del mensaje: 2
+Introduzca el mensaje: 1B
+se ha enviando mensaje de tamaño 2 al tema tema1 que queda ubicado en offset 1
+	mensaje: 1B (hexadecimal: 3142)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema3
+Introduzca la longitud del mensaje: 2
+Introduzca el mensaje: 3A
+se ha enviando mensaje de tamaño 2 al tema tema3 que queda ubicado en offset 0
+	mensaje: 3A (hexadecimal: 3341)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema3
+Introduzca la longitud del mensaje: 2
+Introduzca el mensaje: 3B
+se ha enviando mensaje de tamaño 2 al tema tema3 que queda ubicado en offset 1
+	mensaje: 3B (hexadecimal: 3342)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+P
+recibido mensaje de tamaño 2 del tema tema1
+	mensaje: 1B (hexadecimal: 3142)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema1
+Introduzca la longitud del mensaje: 2
+Introduzca el mensaje: 1C
+se ha enviando mensaje de tamaño 2 al tema tema1 que queda ubicado en offset 2
+	mensaje: 1C (hexadecimal: 3143)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+P
+recibido mensaje de tamaño 2 del tema tema3
+	mensaje: 3A (hexadecimal: 3341)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+P
+recibido mensaje de tamaño 2 del tema tema1
+	mensaje: 1C (hexadecimal: 3143)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+P
+recibido mensaje de tamaño 2 del tema tema3
+	mensaje: 3B (hexadecimal: 3342)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+P
+no hay mensajes
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema1
+offset en el cliente para el tema tema1 es 3
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema2
+offset en el cliente para el tema tema2 es 0
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema3
+offset en el cliente para el tema tema3 es 2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+K
+Introduzca el nombre del tema: tema1
+Introduzca el offset: 0
+nuevo offset 0 en el cliente para el tema tema1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+P
+recibido mensaje de tamaño 2 del tema tema1
+	mensaje: 1A (hexadecimal: 3141)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+P
+recibido mensaje de tamaño 2 del tema tema1
+	mensaje: 1B (hexadecimal: 3142)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+P
+recibido mensaje de tamaño 2 del tema tema1
+	mensaje: 1C (hexadecimal: 3143)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+P
+no hay mensajes
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema1
+offset en el cliente para el tema tema1 es 3
+</pre>
+
+<h3>Fase 5 (2 puntos): <i>Commit</i> de <i>offsets</i></h3>
+Recuerde que en este caso debe arrancar el <i>broker</i> especificando el directorio donde se almacenarán los <i>commits</i>:
+<pre>
+mkdir kaska_data
+./broker 12345 kaska_data
+</pre>
+Y en el <tt>test</tt> hay que especificar el identificador del cliente:
+<pre>
+./test cliente1
+</pre>
+La traza de la prueba sería la siguiente:
+<ul>
+<li>Arranca cliente1</tt>
+<li>Creo un tema <tt>tema1</tt> (opción <tt>C</tt>: usa <tt>create_topic</tt>).
+<li>Creo un tema <tt>tema2</tt>.
+<li>Envío un mensaje de longitud 1 (A) al primer tema (opción <tt>M</tt>: usa <tt>send_msg</tt>).
+<li>Se suscribe a los 2 temas: <tt>tema1</tt> y <tt>tema2</tt> (opción <tt>S</tt>: usa <tt>subscribe</tt>): debe devolver 2
+<li>Envío un mensaje de longitud 1 (B) al segundo tema.
+<li>Envío un mensaje de longitud 1 (C) al segundo tema.
+<li>Lee mensaje (opción <tt>P</tt>: usa <tt>poll</tt>): devuelve 0 porque no hay mensajes disponibles para ese proceso.
+<li>Lee mensaje (opción <tt>P</tt>: usa <tt>poll</tt>): devuelve mensaje B.
+<li>Lee mensaje (usa <tt>poll</tt>): devuelve mensaje C.
+<li>Lee mensaje (usa <tt>poll</tt>): devuelve 0 porque no hay mensajes disponibles para ese proceso.
+<li>Hace un <i>commit</i> de la posición actual del primer tema (opción <tt>Y</tt>: usa de forma combinada <tt>position</tt> y <tt>commit</tt>): valor igual a 1.
+<li>Hace un <i>commit</i> de la posición actual del segundo tema (opción <tt>Y</tt>: usa de forma combinada <tt>position</tt> y <tt>commit</tt>): valor igual a 2.
+<li>Hace un <i>commit</i> de un tema inexistente (opción <tt>O</tt>: usa <tt>commit</tt>): debe devolver un error.
+<li>Fin del cliente.
+<li>Compruebe que se han creado los ficheros con los <i>commits</i>.
+<li>Arranca cliente2</tt>.
+<li>Envío un mensaje de longitud 1 (D) al primer tema.
+<li>Envío un mensaje de longitud 1 (E) al segundo tema.
+<li>Se suscribe a los 2 temas: <tt>tema1</tt> y <tt>tema2</tt> (opción <tt>S</tt>: usa <tt>subscribe</tt>): debe devolver 2
+<li>Hace un <i>commit</i> de la posición actual del primer tema (opción <tt>Y</tt>: usa de forma combinada <tt>position</tt> y <tt>commit</tt>): valor igual a 2.
+<li>Hace un <i>commit</i> de la posición actual del segundo tema (opción <tt>Y</tt>: usa de forma combinada <tt>position</tt> y <tt>commit</tt>): valor igual a 3.
+<li>Arranca cliente1</tt>
+<li>Se suscribe a los 2 temas: <tt>tema1</tt> y <tt>tema2</tt> (opción <tt>S</tt>: usa <tt>subscribe</tt>): debe devolver 2
+<li>Obtengo <i>offset</i> local del primer tema (opción <tt>T</tt>: usa <tt>position</tt>): debe devolver 2.
+<li>Obtengo <i>offset</i> local del segundo tema: debe devolver 3.
+<li>Recupera un <i>commit</i> del primer tema y lo fija como posición actual (opción <tt>Z</tt>: usa de forma combinada <tt>commited</tt> y <tt>seek</tt>).
+<li>Obtengo <i>offset</i> local del primer tema: debe devolver 1.
+<li>Recupera un <i>commit</i> del segundo tema y lo fija como posición actual (opción <tt>Z</tt>: usa de forma combinada <tt>commited</tt> y <tt>seek</tt>).
+<li>Obtengo <i>offset</i> local del segundo tema: debe devolver 2.
+<li>Recupera un <i>commit</i> de un tema inexistente  (opción <tt>D</tt>: usa <tt>commited</tt>).
+<li>Arranca cliente2</tt>.
+<li>Se suscribe a los 2 temas: <tt>tema1</tt> y <tt>tema2</tt> (opción <tt>S</tt>: usa <tt>subscribe</tt>): debe devolver 2
+<li>Obtengo <i>offset</i> local del primer tema (opción <tt>T</tt>: usa <tt>position</tt>): debe devolver 2.
+<li>Obtengo <i>offset</i> local del segundo tema: debe devolver 3.
+<li>Recupera un <i>commit</i> del primer tema y lo fija como posición actual (opción <tt>Z</tt>: usa de forma combinada <tt>commited</tt> y <tt>seek</tt>).
+<li>Obtengo <i>offset</i> local del primer tema: debe devolver 2.
+<li>Recupera un <i>commit</i> del segundo tema y lo fija como posición actual (opción <tt>Z</tt>: usa de forma combinada <tt>commited</tt> y <tt>seek</tt>).
+<li>Obtengo <i>offset</i> local del segundo tema: debe devolver 3.
+</ul>
+A continuación, se muestra la traza de la misma:
+<pre>
+$ ./test cliente1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema1
+se ha creado el tema tema1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+C
+Introduzca el nombre del tema: tema2
+se ha creado el tema tema2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema1
+Introduzca la longitud del mensaje: 1
+Introduzca el mensaje: A
+se ha enviando mensaje de tamaño 1 al tema tema1 que queda ubicado en offset 0
+	mensaje: A (hexadecimal: 41)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+S
+Introduzca el número de temas: 2
+Introduzca el nombre del tema: tema1
+Introduzca el nombre del tema: tema2
+después de subscribe: nombre tema1 offset 1
+después de subscribe: nombre tema2 offset 0
+se ha suscrito a 2 temas
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema2
+Introduzca la longitud del mensaje: 1
+Introduzca el mensaje: B
+se ha enviando mensaje de tamaño 1 al tema tema2 que queda ubicado en offset 0
+	mensaje: B (hexadecimal: 42)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema2
+Introduzca la longitud del mensaje: 1
+Introduzca el mensaje: C
+se ha enviando mensaje de tamaño 1 al tema tema2 que queda ubicado en offset 1
+	mensaje: C (hexadecimal: 43)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+P
+recibido mensaje de tamaño 1 del tema tema2
+	mensaje: B (hexadecimal: 42)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+P
+recibido mensaje de tamaño 1 del tema tema2
+	mensaje: C (hexadecimal: 43)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+P
+no hay mensajes
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+Y
+Introduzca el nombre del tema: tema1
+offset commit = position (1) para el tema tema1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+Y
+Introduzca el nombre del tema: tema2
+offset commit = position (2) para el tema tema2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+O
+Introduzca el nombre del tema: tema_noexiste
+Introduzca el offset: 0
+error en commit
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+$ find ../broker/kaska_data/
+../broker/kaska_data/
+../broker/kaska_data/cliente1
+../broker/kaska_data/cliente1/tema2
+../broker/kaska_data/cliente1/tema1
+$ ./test cliente2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema1
+Introduzca la longitud del mensaje: 1
+Introduzca el mensaje: D
+se ha enviando mensaje de tamaño 1 al tema tema1 que queda ubicado en offset 1
+	mensaje: D (hexadecimal: 44)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+M
+Introduzca el nombre del tema: tema2
+Introduzca la longitud del mensaje: 1
+Introduzca el mensaje: E
+se ha enviando mensaje de tamaño 1 al tema tema2 que queda ubicado en offset 2
+	mensaje: E (hexadecimal: 45)
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+S
+Introduzca el número de temas: 2
+Introduzca el nombre del tema: tema1
+Introduzca el nombre del tema: tema2
+después de subscribe: nombre tema1 offset 2
+después de subscribe: nombre tema2 offset 3
+se ha suscrito a 2 temas
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+Y
+Introduzca el nombre del tema: tema1
+offset commit = position (2) para el tema tema1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+Y
+Introduzca el nombre del tema: tema2
+offset commit = position (3) para el tema tema2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+$ find ../broker/kaska_data/
+../broker/kaska_data/
+../broker/kaska_data/cliente2
+../broker/kaska_data/cliente2/tema2
+../broker/kaska_data/cliente2/tema1
+../broker/kaska_data/cliente1
+../broker/kaska_data/cliente1/tema2
+../broker/kaska_data/cliente1/tema1
+$ ./test cliente1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+S
+Introduzca el número de temas: 2
+Introduzca el nombre del tema: tema1
+Introduzca el nombre del tema: tema2
+después de subscribe: nombre tema1 offset 2
+después de subscribe: nombre tema2 offset 3
+se ha suscrito a 2 temas
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema1
+offset en el cliente para el tema tema1 es 2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema2
+offset en el cliente para el tema tema2 es 3
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+Z
+Introduzca el nombre del tema: tema1
+offset cliente = commited (1) para el tema tema1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema1
+offset en el cliente para el tema tema1 es 1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+Z
+Introduzca el nombre del tema: tema2
+offset cliente = commited (2) para el tema tema2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema2
+offset en el cliente para el tema tema2 es 2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+D
+Introduzca el nombre del tema: tema_noexiste
+error en commited
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+$ ./test cliente2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+S
+Introduzca el número de temas: 2
+Introduzca el nombre del tema: tema1
+Introduzca el nombre del tema: tema2
+después de subscribe: nombre tema1 offset 2
+después de subscribe: nombre tema2 offset 3
+se ha suscrito a 2 temas
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema1
+offset en el cliente para el tema tema1 es 2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema2
+offset en el cliente para el tema tema2 es 3
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+Z
+Introduzca el nombre del tema: tema1
+offset cliente = commited (2) para el tema tema1
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema1
+offset en el cliente para el tema tema1 es 2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+Z
+Introduzca el nombre del tema: tema2
+offset cliente = commited (3) para el tema tema2
+
+Seleccione operación (ctrl-D para terminar; en menús internos ctrl-D para volver a menú principal)
+	C: Create topic|N: Ntopics|M: send_Msg|L: message Length|E: End offset
+	S: Subscribe|U: Unsubscribe|T: posiTion|K: seeK|P: Poll
+	O: cOmmit|D: committeD|Y: commit=position|Z: seek=commited
+T
+Introduzca el nombre del tema: tema2
+offset en el cliente para el tema tema2 es 3
+</pre>
+
+</body></html>

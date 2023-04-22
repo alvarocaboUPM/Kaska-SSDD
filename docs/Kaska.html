@@ -1,0 +1,327 @@
+
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+<title>Kaska: editor/suscriptor con un esquema de tipo streams</title>
+</head>
+<body>
+
+<h1>Kaska: editor/suscriptor con un esquema de tipo <i>streams</i></h1>
+Se trata de un proyecto práctico de carácter <b>individual</b>
+cuyo plazo de entrega se extiende hasta el final del <b>2 de junio</b> en la convocatoria ordinaria y hasta el final del <b>5 de julio</b> en la extraordinaria.
+La práctica se puede desarrollar en cualquier sistema Linux que tenga instalado el entorno de compilación de C. Puede usarse una máquina personal o cualquiera del conjunto de 4 máquinas asociadas al nombre <tt>triqui.fi.upm.es.</tt> gestionadas por el centro de cálculo de la escuela. En cualquier caso, como se explicará más adelante, hay que entregar la práctica en <tt>triqui.fi.upm.es</tt>.
+<p>
+<b>AVISO IMPORTANTE</b><br>
+Como parte de la evaluación de la práctica, se realizará un control de plagio aplicando la normativa vigente para tal circunstancia tanto a los alumnos que han entregado una práctica que no han desarrollado como a los que han dejado su práctica a otros alumnos. Para evitar este tipo de incidencias desagradables para todos, querría que tuvierais en cuenta este par de consideraciones:
+<ul>
+<li>Para aquellos que se sientan tentados de pedir prestada la práctica porque, por la razón que sea, no se ven capacitados para abordarla, el enunciado especifica con todo detalle qué pasos hay que realizar y cómo ir modificando el material de apoyo inicial para ir incorporando la funcionalidad pedida. Además, cuentan con mi ayuda para cualquier duda, por elemental que parezca. <b>Os garantizo que con un pequeño esfuerzo por vuestra parte y contactando conmigo por correo todas las veces que haga falta seréis capaz de superar esta práctica</b>.
+<li>Para aquellos que se vean presionados para prestar su práctica, exponiéndose a ser penalizados, deberían tener en cuenta la consideración anterior.
+</ul>
+
+<h2>Objetivo de la práctica</h2>
+Como se ha estudiado en la parte teórica de la asignatura, los sistemas editor/suscriptor con un modo de operación <i>pull</i> y un almacenamiento persistente de eventos, es decir, con un esquema de <i>streaming</i>, proporcionan una arquitectura apropiada para numerosos escenarios distribuidos. Dentro de este tipo de arquitecturas, Apache Kafka es la principal plataforma y es en el sistema en el que se centra este proyecto práctico, cuyo nombre homenajea a dicha popular plataforma, además de servir como recordatorio de la falibilidad del software. 
+Evidentemente, se trata de una versión muy reducida de este complejo componente software dejando fuera muchas de sus funcionalidades (el uso de múltiples <i>brokers</i> con replicación y particiones, el <i>empaquetamiento</i> de peticiones y respuestas, el uso de claves, la persistencia de los mensajes, los grupos de consumidores, la recuperación de mensajes por <i>timestamp</i>, etc.), pero consideramos que permite apreciar qué tipo de funcionalidad tienen esta clase de sistemas y entender mejor cuál es su modo de operación interno.
+<p>
+A continuación, se incluyen algunos apartados que describen la funcionalidad y requisitos que debe satisfacer la práctica para que sean consultados cuando se necesite. En cualquier caso, puede ir directamente a la <a href="#pasos">sección que explica paso a paso cómo desarrollar la práctica</a>.
+<h2>Repaso del modo de operación editor/suscriptor con <i>streaming</i></h2>
+Aunque ya lo hemos estudiado en la parte teórica de la asignatura, vamos a recordar los puntos más importantes de este tipo de sistemas suponiendo un modo de operación similar al de Kafka:
+<ul>
+<li>El <i>broker</i> (<i>brokers</i> en el caso de Kafka) almacena los mensajes/eventos enviados por los productores/editores a los distintos temas.
+<li>En Kafka un consumidor/suscriptor guarda a qué temas está suscrito y cuál fue el último mensaje/evento que leyó de cada uno de esos temas (el <i>offset</i>). Por tanto, esa parte del estado del sistema no se almacena en el servidor/<i>broker</i> sino en la biblioteca del cliente.
+<li>Tiene un modo de operación <i>pull</i>: un consumidor/suscriptor pide al <i>broker</i> un nuevo mensaje indicándole a qué temas está suscrito y cuál es su <i>offset</i> para cada uno de esos temas.
+<li>Cuando un consumidor/suscriptor se suscribe a un tema, su <i>offset</i> inicial será tal que solo podrá ver los mensajes que se envíen al mismo a partir de ese momento.
+<li>Un consumidor/suscriptor puede modificar su <i>offset</i> en un tema para poder recibir mensajes anteriores a su suscripción o volver a recibir un mensaje nuevamente.
+<li>Para permitir que un consumidor/suscriptor no tenga que estar siempre activo y pueda retomar el trabajo donde lo dejó al volver a ejecutarse, se pueden guardar de forma persistente sus <i>offsets</i> en el <i>broker</i> y recuperarlos al reiniciarse.
+</ul>
+<h2>Requisitos de la práctica</h2>
+A continuación, se especifican una serie de requisitos que deben ser <b>obligatoriamente satisfechos</b> por la práctica desarrollada:
+</p><ul>
+<li>La práctica debe funcionar tanto en local como en remoto.
+</li><li>En cuanto a las tecnologías de comunicación usadas en la práctica,
+se programará en C, se utilizarán sockets de tipo <i>stream</i> y se supondrá un entorno de máquinas heterogéneas.
+</li><li>Se utilizará un esquema con un único proceso que actúa como <i>broker</i>
+proporcionando el desacoplamiento espacial y temporal entre los editores (productores en terminología Kafka) y los
+suscriptores (consumidores en terminología Kafka). Al usar un esquema de tipo <i>streaming</i>, el <i>broker</i> se encargará de almacenar los eventos.
+</li><li>El <i>broker</i> dará un servicio concurrente basado en la creación dinámica de <i>threads</i> encargándose cada <i>thread</i> de servir todas las peticiones que llegan por una conexión.
+</li><li>Un proceso editor y/o suscriptor (recuerde que un proceso puede ejercer ambos roles) mantendrá una conexión persistente con el <i>broker</i> durante toda su interacción. Dado ese posible doble rol, en el resto del documento vamos a denominar clientes a este tipo de procesos.
+</li><li>Como en el protocolo Kafka, el nombre de un tema es un <i>string</i> con un tamaño máximo de 2<sup>16</sup>-1 bytes incluyendo el carácter nulo final.
+<li><b>Los mensajes/eventos enviados pueden tener un contenido binario</b> (por ejemplo, pueden corresponder a una imagen o a texto cifrado). Por tanto, no pueden tratarse como <i>strings</i> y es necesario conocer explícitamente su tamaño. Nótese que las aplicaciones que usan este sistema usarán el esquema de serialización que consideren oportuno para enviar la información que manejan,
+</li><li>El diseño del sistema <b>no debe establecer ninguna limitación en el
+número de temas y clientes existentes en el sistema ni en el número de mensajes almacenados en el <i>broker</i>.</b>
+</li><li>Recuerde que debe manejar adecuadamente las cadenas de caracteres recibidas asegurándose de que terminan en un carácter nulo.
+</li><li>Se debe garantizar un comportamiento <i>zerocopy</i> tanto en la
+gestión de los nombres de tema como en el contenido de los mensajes:
+<ul>
+<li><b>No se pueden realizar copias de estos campos en el <i>broker</i></b>.
+<li><b>No se pueden realizar copias de estos campos en la biblioteca de cliente, excepto cuando el enunciado lo indique.
+</b></li><li><b>Para evitar la fragmentación en la transmisión, tanto los clientes como el <i>broker</i> mandarán toda la información de una petición o de una respuesta, respectivamente, con un único envío</b>.
+</li></ul>
+</li><li>Debe optimizarse el uso de ancho de banda de manera que el tamaño de la información enviada sea solo ligeramente mayor que la suma del tamaño de los campos que deben enviarse.
+</li><li>Para facilitar el desarrollo de la práctica, se proporciona una implementación de un tipo de datos que actúa como un mapa iterable (<tt>map</tt>), permitiendo asociar un valor con una clave, y un tipo que gestiona una cola <i>append-only</i> (<tt>queue</tt>). <b>Se deben usar obligatoriamente estos tipos de datos a la hora de implementar la práctica</b>.
+</li></ul>
+
+<h2>API ofrecida a las aplicaciones</h2>
+En esta sección, se describen las operaciones que se les proporcionan
+a las aplicaciones, que están declaradas en el fichero <tt>libkaska/kaska.h</tt> al formar parte de la biblioteca de servicio a los clientes. Lógicamente, esta API se basa en la del propio Kafka, pero simplificada y sin <i>empaquetamiento</i> de parámetros. Así, por ejemplo, la función <a href="https://kafka-python.readthedocs.io/en/master/apidoc/KafkaAdminClient.html#kafka.KafkaAdminClient.create_topics">create_topics</a> del API de Kafka para Python permite crear simultáneamente varios temas, estando el protocolo también diseñado para enviarlos en una sola <a href="https://kafka.apache.org/protocol#The_Messages_CreateTopics">petición</a>. Sin embargo, en nuestra API con esa función solo se puede crear un único tema (<tt>create_topic</tt>) y lo mismo sucede con el resto de funciones.
+<p>
+A continuación, se describen las operaciones del API, que devolverán un valor negativo en caso de error en la comunicación, cuya funcionalidad más detallada será explicada de forma incremental, según se vayan especificando los sucesivos pasos en el desarrollo de la práctica. 
+<ul>
+<li>Crea el tema especificado, devolviendo 0 si la operación es correcta y un valor negativo en caso de error porque el tema ya exista.
+<pre>
+int create_topic(char *topic);
+</pre>
+<li>Devuelve cuántos temas existen en el sistema.
+<pre>
+int ntopics(void);
+</pre>
+<li>Envía el mensaje al tema especificado. Nótese la necesidad de indicar el tamaño del mensaje ya que puede tener un contenido de tipo binario. Devuelve el <i>offset</i> donde queda almacenado el mensaje en la cola asociada al tema y un valor negativo en caso de error debido a que el tema no exista. Si el segundo parámetro vale 0, la operación no realizará ninguna labor, pero no se se considerará que se trata de un error.
+<pre>
+int send_msg(char *topic, int msg_size, void *msg);
+</pre>
+<li>Devuelve la longitud del mensaje almacenado en ese <i>offset</i> del tema indicado y un valor negativo en caso de error debido a que el tema no existe. Si no hay mensajes en ese <i>offset</i>, se debe devolver un 0.
+<pre>
+int msg_length(char *topic, int offset);
+</pre>
+<li>Obtiene el último <i>offset</i> asociado a un tema en el <i>broker</i>, que corresponde al del último mensaje enviado más uno y, dado que los mensajes se
+numeran desde 0, coincide con el número de mensajes asociados a ese tema.
+Devuelve un valor negativo en caso de error debido a que el tema no existe.
+<pre>
+int end_offset(char *topic);
+</pre>
+<li>Se suscribe al conjunto de temas recibidos. No permite suscripción incremental: hay que especificar todos los temas de una vez. Si un tema no existe o está repetido en la lista simplemente se ignora. Devuelve el número de temas a los que realmente se ha suscrito y un valor negativo solo si ya estaba suscrito a algún tema.
+<pre>
+int subscribe(int ntopics, char **topics);
+</pre>
+<li>Se da de baja de todos los temas suscritos. Devuelve un valor negativo si no había suscripciones activas. Nótese que se trata de una operación local.
+<pre>
+int unsubscribe(void);
+</pre>
+<li>Devuelve el <i>offset</i> del cliente para ese tema y un número negativo en
+caso de error porque no esté suscrito a ese tema. Nótese que se trata de una operación local.
+<pre>
+int position(char *topic);
+</pre>
+<li>Modifica el <i>offset</i> del cliente para ese tema devolviendo un error si no está suscrito a ese tema. Nótese que se trata de una operación local.
+<pre>
+int seek(char *topic, int offset);
+</pre>
+<li>
+Obtiene el siguiente mensaje destinado a este cliente. Los dos parámetros son de salida: a qué tema corresponde y el mensaje recibido. La propia función <tt>poll</tt> se encarga de reservar en memoria dinámica espacio para el tema y el mensaje. Es responsabilidad de la aplicación liberar ese espacio.
+Si no hay ningún mensaje, la operación retornará un 0. Devolverá un valor negativo si no está suscrito a ningún tema. Si en cualquiera de los parámetros se recibe un valor nulo, se procederá con la operación normal pero, evidentemente, no se asignará un valor a ese parámetro.
+<pre>
+int poll(char **topic, void **msg);
+</pre>
+<li>Almacena de forma persistente en el <i>broker</i> el <i>offset</i> especificado para el tema indicado asociándolo con ese cliente. Devuelve un error si el tema no existe. No se requiere estar suscrito al tema.
+<pre>
+int commit(char *client, char *topic, int offset);
+</pre>
+<li>Recupera del <i>broker</i> el <i>offset</i> almacenado para ese tema correspondiente a ese cliente. Devuelve un error si el tema o el cliente no existen.
+No se requiere estar suscrito al tema.
+<pre>
+int commited(char *client, char *topic);
+</pre>
+</ul>
+
+<h2><a name="pasos">Desarrollo de la práctica paso a paso</a></h2>
+En esta sección iremos detallando los pasos que hay realizar para desarrollar la práctica identificando 5 fases, con una calificación de 2 puntos por cada fase:
+<ol>
+<li>Crear temas, así como todos los pasos iniciales.
+<li>Envío de mensajes.
+<li>Subscripción.
+<li>Lectura de mensajes.
+<li><i>Commit</i> de <i>offsets</i>.
+</ol>
+
+<h3>Fase 1 (2 puntos): Creación de temas y primeros pasos</h3>
+El primer paso es descargarse el material de apoyo de la práctica, que está disponible en el Moodle de la asignatura. También se puede descargar directamente desde una URL:
+<pre>
+wget https://laurel.datsi.fi.upm.es/_media/docencia/asignaturas/sd/kaska-2023.tgz
+</pre>
+El material de apoyo está empaquetado en un fichero TGZ:
+<pre>
+tar xvf kaska-2023.tgz
+</pre>
+Es importante resaltar que en <b>el material de apoyo existen varios enlances simbólicos que se requieren para poder compartir ficheros entre los distintos directorios. Si copia el material de apoyo directamente, puede perderlos y no funcionará correctamente</b>. Puede volver a crearlos o descargarse nuevamente el material de apoyo en otro directorio y copiar los ficheros que ha modificado.
+
+<h4>Jerarquía de ficheros de la práctica</h4>
+Revisemos los distintos directorios:
+<ul>
+<li><tt>ejemplo_sockets</tt>: Contiene un ejemplo de comunicación con sockets donde el cliente usa la función <tt>writev</tt> para enviar con una sola operación todos los datos requeridos. Concretamente, envía un entero, un <i>string</i> y un <i>array</i> de bytes, que son justo los tres tipos de objetos que hay que enviar en la práctica. Por tanto, como se explica más adelante, usaremos estos ficheros como base de la práctica, pero no realizaremos ningún trabajo en este directorio.
+<li><tt>util</tt>: Contiene la implementación de un mapa iterable (<tt>map</tt>) y de una cola de solo <i>append</i> (<tt>queue</tt>). Incluye un ejemplo del uso de estas estructuras (<tt>demo</tt>) que usaremos como base de la práctica, como se explica más adelante; no realizaremos ningún trabajo en este directorio. Recuerde que <b>se deben usar obligatoriamente estos dos tipos para implementar la práctica</b>.
+<li><tt>clients</tt>: Se proporciona un cliente (<tt>test.c</tt>), que ofrece una interfaz de texto, para probar la práctica. Este programa no requiere ningún argumento excepto en la quinta fase, donde se especifica el identificador del cliente. No hay que realizar ningún trabajo en este directorio.
+<li><tt>broker</tt>: Contiene la funcionalidad de este componente del sistema, que se incluirá en el fichero <tt>broker.c</tt>, que inicialmente está vacío. Como se explicará en breve, se recomienda usar como versión inicial de este componente parte del ejemplo de servidor con sockets e ir añadiendo ciertos fragmentos de la demo del directorio <tt>util</tt>. Este programa recibe como argumento el puerto de servicio y, para la quinta fase, el directorio donde se almacenarán los <i>offsets</i> salvados.
+</li><li><tt>libkaska</tt>: Corresponde a la biblioteca de cliente, cuyo código se incluirá en el fichero <tt>kaska_client_lib.c</tt>, que inicialmente contiene las funciones de servicio previamente identificadas, pero vacías. Como se explicará en breve, se recomienda usar como versión inicial de este componente parte del ejemplo de cliente con sockets e ir añadiendo ciertos fragmentos de la demo del directorio <tt>util</tt>. Este módulo recibirá la dirección del <i>broker</i> como dos variables
+de entorno:
+<ul>
+<li><tt>BROKER_HOST</tt>: <b>nombre</b> de la máquina donde ejecuta el <i>broker</i> (debe funcionar tanto si se especifica un nombre como una IP, lo que está resuelto directamente al usar <tt>getaddrinfo</tt> tal como se hace en el ejemplo de cliente con sockets).
+</li><li><tt>BROKER_PORT</tt>: número de puerto TCP por el que está escuchando.
+</li></ul>
+Para facilitar la reutilización de código entre los dos últimos módulos, se incluyen
+los ficheros <tt>comun.c</tt> y <tt>comun.h</tt>, que están presentes
+en los directorios de ambos módulos (<tt>broker</tt> y <tt>libkaska</tt>,
+respectivamente) mediante el uso de enlaces simbólicos (recuerde asegurarse
+de que durante la manipulación de los ficheros de la práctica
+no pierde por error estos enlaces), donde puede incluir funcionalidad
+común a ambos módulos si lo considera oportuno.
+</li></ul>
+Recapitulando, el desarrollo de la práctica se centra en los ficheros:
+<ul>
+<li><tt>broker/broker.c</tt>
+<li><tt>libkaska/kaska_client_lib.c</tt>
+<li><tt>broker/comun.[ch]</tt>, si lo considera conveniente.
+</ul>
+
+<h4>Ejecución de pruebas del sistema</h4>
+Aunque todavía no hemos empezado con la funcionalidad, parece conveniente
+explicar desde el principio cómo se realizan las pruebas en esta práctica.
+<p>
+Para probar la práctica, debería, en primer lugar, arrancar el <tt>broker</tt>
+especificando el puerto de servicio que considere oportuno (para la quinta fase habrá que especificar también el directorio donde se almacenarán los <i>offsets</i>):
+<pre>
+cd broker
+make
+./broker 12345
+</pre>
+A continuación, puede arrancar instancias del programa <tt>test</tt> en la misma máquina o en otras. Este programa ofrece una interfaz de texto para que el usuario pueda solicitar la ejecución de cualquiera de las operaciones del sistema. Recuerde que para la quinta fase hay que especificar como argumento del programa el identificador del cliente:
+<pre>
+cd clients
+make
+export BROKER_PORT=12345
+export BROKER_HOST=nombre_del_host_del_broker
+./test
+</pre>
+Una instancia adicional pero pasándole las variables de entorno en la propia línea del mandato:
+<pre>
+cd clients
+make
+BROKER_HOST=nombre_del_host_del_broker BROKER_PORT=12345 ./test 
+</pre>
+
+<h4>Versión inicial de la práctica</h4>
+En primer lugar, se recomienda empezar creando una versión inicial, basada en los ejemplos de sockets proporcionados, de los dos ficheros donde se incluye el código de la práctica (recuerde que también puede hacerlo en <tt>comun.c</tt>):
+<ul>
+<li><tt>broker.c</tt>: Se recomienda usar directamente el código de <tt>servidor.c</tt>. Se trata de un servidor que crea dinámicamente <i>threads</i> tal que cada uno se encarga de servir todas las peticiones que llegan por una conexión y que, lógicamente, pertenecen al mismo cliente. En ese código inicial, ya está organizada la estructura de servicio, pero siempre espera recibir la misma información (un entero, un <i>string</i> y un <i>array</i> de bytes). Si opta por utilizar ese código de partida, mantenga estas líneas del <i>broker</i> original que incluye un control de errores adecuado para la quinta fase de la práctica: 
+<pre>
+    if (argc!=2 &amp;&amp; argc!=3) {
+        fprintf(stderr, "Uso: %s puerto [dir_commited]\n", argv[0]);
+        return 1;
+    }
+</pre>
+<li><tt>kaska_client_lib.c</tt>: Se recomienda incluir en el código inicial la función <tt>init_socket_client</tt> de <tt>cliente.c</tt>, que debe invocarse solo una vez cuando se llama por primera vez a una función de la biblioteca de manera que el socket conectado quede disponible para todas las funciones. Por el momento, el código de la función <tt>petición</tt> puede incorporarlo en la primera función (<tt>create_topic</tt>), que trataremos en el siguiente apartado. Nótese que debe cambiar los parámetros usados al llamar a <tt>init_socket_client</tt> ya que la dirección y el puerto de servidor llegan como variables de entorno en vez de como argumentos.
+</ul>
+Nótese que se ha optado por no incluir ese código de comunicación directamente sino mantenerlo como una recomendación para dejar a cada uno la libertad de usarlo o desarrollar el suyo propio. 
+<p>
+Antes de empezar con la primera función, hay que tomar una decisión de diseño inicial: ¿cómo se van a distinguir las distintas operaciones en el protocolo que vamos a definir para la comunicación entre los clientes y el <i>broker</i>?
+Una opción es usar un entero que codifique cada posible operación lo que nos permite aprovechar mejor el código de ejemplo de sockets que ya envía un entero como primer valor (para quien tenga curiosidad, el protocolo de Kafka usa un entero de 16 bits). Con este esquema, la biblioteca enviaría por cada petición su código y el resto de información relevante, mientras que el <i>broker</i> leería en primer lugar ese código ejecutando a continuación el código específico de esa operación.
+Asimismo, parece razonable usar un <i>int</i> para enviar el resultado de cada operación, como ya está hecho en los ejemplos de sockets. 
+<p>
+Otro aspecto a tener en cuenta en este punto es qué estructuras de datos usará el <i>broker</i> para gestionar el almacén de mensajes por tema.
+Una posible opción es crear un mapa que asocie el nombre de un tema, que actúa de clave, con el descriptor del tema, que sería el valor. Ese descriptor podría ser un <tt>struct</tt> con el nombre del tema y una cola asociada.
+En la demo del directorio <tt>util</tt> puede ver un ejemplo similar con cuentas, que equivaldrían a los temas, y la lista de operaciones realizadas sobre una cuenta, que corresponderían a los mensajes.
+Dado que el mapa se a va acceder desde múltiples <i>threads</i>, se debe crear, dentro del código de inicialización del <i>broker</i> con la opción de sincronización interna activa.
+<p>
+En cualquier caso, el alumno tiene total libertad en el diseño siempre que se cumplan los requisitos enunciados.
+<p>
+<h4>Función <tt>create_topic</tt></h4>
+En la parte de la biblioteca, simplemente hay que realizar el envío del código de operación y del nombre del tema y la recepción del resultado. Se puede, por 
+tanto, reutilizar el código de apoyo eliminando el envío del <i>array</i>.
+<p>
+En cuanto al procesado de esa operación en el <i>broker</i>, habría que crear el descriptor del tema y la cola, con la opción de sincronización interna activa, e insertar ese descriptor en el mapa, tal como se hace en el programa demo, enviando un mensaje de respuesta que refleje si la operación se ha realizado correctamente o ha habido un error porque el tema ya existía.
+
+<h4>Función <tt>ntopics</tt></h4>
+La implementación es directa ya que solo es necesario enviar el código de operación y responder con el tamaño del mapa.
+
+<h3>Fase 2 (2 puntos): Envío de mensajes</h3>
+En esta fase entra en juego la cola de mensajes y es necesario, por tanto,
+definir un descriptor del mensaje que podría ser un <tt>struct</tt> con el tamaño del mensaje y la referencia al mismo. Cada entrada de la cola será un descriptor de mensaje. En la demo del directorio <i>util</i> puede ver un ejemplo similar.
+<h4>Función <tt>send_msg</tt></h4>
+En la biblioteca de cliente hay que enviar, además del código de operación y el nombre del tema, también el <i>array</i> con el mensaje, es decir, lo mismo que en el ejemplo de sockets original.
+<p>En cuanto al <i>broker</i>, debe crear el descriptor del mensaje y añadirlo al final de la cola del tema indicado retornando su <i>offset</i> (la función <tt>queue_append</tt> lo devuelve).
+
+<h4>Función <tt>msg_length</tt></h4>
+En la biblioteca de cliente hay que enviar un segundo entero que representa el <i>offset</i> solicitado, mientras que en el <i>broker</i> hay que usar <tt>queue_get</tt> para acceder a ese mensaje.
+
+<h4>Función <tt>end_offset</tt></h4>
+La biblioteca de cliente tiene que enviar la misma información que en <tt>create_topic</tt>, mientras que el <i>broker</i> debe devolver simplemente el tamaño de la cola correspondiente.
+
+<h3>Fase 3 (2 puntos): suscripción</h3>
+Todo el código desarrollado en esta clase corresponde a la biblioteca de cliente. Hay que incluir en la misma un mapa que permita asociar los temas suscritos con sus <i>offsets</i> locales. Al no ser una biblioteca <i>multithread</i> no es necesario activar la sincronización interna del mapa.
+
+<h4>Función <tt>subscribe</tt></h4>
+Debe crear el mapa de temas suscritos.
+Recuerde que no tiene un modo de operación incremental: da error si ya existe un mapa. Por cada tema a suscribir, usa directamente la función <tt>end_offset</tt> para comprobar que existe y conocer su <i>offset</i> actual, que será el que se almacene en la nueva entrada que se añade al mapa. Tenga en cuenta que el cliente no tiene acceso inicialmente a los mensajes previos. Nótese que en esta función tenemos que romper la estrategia <i>zerocopy</i> ya que no podemos añadir en el mapa una referencia al nombre de tema recibido como parámetro puesto que la aplicación puede reutilizarlo. Puede usarse la función <tt>strdup</tt> para crear un duplicado e insertar en el mapa una referencia al mismo.
+
+<h4>Función <tt>unsubscribe</tt></h4>
+Libera el mapa de temas, dando error si no existía previamente.
+
+<h4>Función <tt>position</tt></h4>
+Obtiene el <i>offset</i> local asociado al tema especificado usando <tt>map_get</tt> para acceder al mismo.
+
+<h4>Función <tt>seek</tt></h4>
+Actualiza el <i>offset</i> local asociado al tema especificado usando <tt>map_get</tt> para acceder al mismo.
+
+<h3>Fase 4 (2 puntos): lectura de mensajes (<tt>poll</tt>)</h3>
+En este punto, ya tenemos un 6 en la práctica por lo que el enunciado deja de explicar con tanto detalle la implementación de cada función pasando a dar una descripción más somera de manera que el alumno tenga que hacer un mayor esfuerzo para programarla.
+<p>
+Con respecto a la parte de la biblioteca, la función <tt>poll</tt> itera por todos los temas suscritos (véase la demo de la biblioteca <i>util</i>) y, por cada tema, envía un mensaje al <i>broker</i> especificando, además del código de operación, el nombre del tema y el <i>offset</i> local (igual que en <tt>msg_length</tt>), obteniendo como respuesta un error, una indicación de que no hay un mensaje de ese tema con ese <i>offset</i> o el mensaje leído (nótese que es la única operación que devuelve un dato no escalar: un <i>array</i> de bytes que contiene el mensaje).
+<p>
+En ese último caso, se detiene la iteración y se devuelve en los parámetros de tipo puntero recibidos la referencia al mensaje y, volviendo a romper el <i>zerocopy</i>, un duplicado del nombre del tema (no podemos devolver la referencia al nombre de tema en el mapa ya que en ese caso la aplicación podría liberar la memoria asociada al mismo corrompiendo el mapa), retornando asimismo el tamaño del mensaje. En caso de error o falta de mensaje, se continúa la iteración, llegándose al final de la misma si no hay mensajes pendientes para ese cliente en ninguno de los temas.
+<p>
+Nótese que la próxima llamada <tt>poll</tt>, por equidad, debería comenzar a iterar el mapa justo por la entrada que está después de donde se quedó la llamada anterior. Para implementar esta funcionalidad, como se puede apreciar en la demo, hay que guardar una variable global de tipo <tt>map_position</tt>, que se inicializaría en <tt>subscribe</tt> y se liberaría en <tt>unsubscribe</tt>, para almacenar en qué posición termina una iteración (<tt>map_iter_exit</tt>) y usarla como parámetro en la siguiente (<tt>map_iter_init</tt>). Tenga en cuenta que <b>hay que asegurarse de que, cuando se interrumpe una iteración sin completarla, debido a que se ha encontrado un mensaje, el iterador queda apuntando al siguiente elemento</b>.
+<p>
+Con respecto al <i>broker</i>, debe acceder al mensaje pedido de manera similar a la operación <tt>msg_length</tt>, pero retornando esta vez su contenido.
+
+<h3>Fase 5 (2 puntos): <i>Commit</i> de <i>offsets</i></h3>
+Hacer persistente un <i>offset</i> proporciona a los clientes la posibilidad de poder reanudar el tratamiento de mensajes justo en el punto donde se quedó después de un reinicio voluntario o involuntario. Dándole el control a la aplicación de cuándo se hace persistente un <i>offset</i>, permite que esta gestione el modelo de tratamiento de los errores que más le convenga. Así, por ejemplo, puede decidir hacer persistente un <i>offset</i> nada más leer el mensaje. Sin embargo, con esta estrategia, si se cae la aplicación justo en ese momento, el mensaje quedaría sin procesar. Otra alternativa es hacer persistente el <i>offset</i> después de procesar el mensaje, en cuyo caso, si se cae la aplicación después de procesar el mensaje pero antes de hacer persistente su <i>offset</i>, se volvería a procesar el mismo mensaje cuando reanude su ejecución.
+<p>
+Si se almacena el <i>offset</i> en la memoria del <i>broker</i>, este puede mantenerse aunque se caiga el cliente, pero no sobreviviría a la caída del <i>broker</i>. Kafka resuelve este problema de dos formas complementarias: replicando y almacenando en disco toda la información, tanto los <i>offsets</i> como los propios mensajes. Nótese que no serviría de mucho guardar en el disco los <i>offsets</i> sino se almacenan también los mensajes.
+<p>De cara a la práctica, sin embargo, dado que se complica el hacer persistentes en disco los mensajes (si alguien está interesado se podría plantear una práctica al respecto), vamos a conformarnos en esta última fase con guardar en el disco de la máquina donde ejecuta el <i>broker</i> los <i>offsets</i> salvados por los clientes.
+<p>
+Para esta fase, el programa <tt>test</tt> recibirá como argumento un idenficador de cliente que será el que permita vincular las sucesivas ejecuciones de una misma aplicación. Asimismo, el <tt>broker</tt> recibirá como segundo argumento el nombre de un directorio, que debe existir previamente, donde se almacenarán los <i>offsets</i>. Dentro de ese directorio, se creará un subdirectorio con el nombre del cliente para cada cliente que haya salvado alguna vez un <i>offset</i>. El <i>offset</i>, concretamente, se almacenará en un fichero de ese subdirectorio con el nombre del tema.
+
+<h4>Función <tt>commit</tt></h4>
+En la biblioteca habría que enviar 2 <i>strings</i>: el cliente y el tema, junto con el código de operación y el <i>offset</i>. En cuanto al <i>broker</i>, habría que crear el subdirectorio correspondiente al cliente y el fichero asociado al tema, siempre que no existan, y escribir en el fichero el <i>offset</i>.
+
+<h4>Función <tt>commited</tt></h4>
+En la biblioteca habría que enviar 2 <i>strings</i>: el cliente y el tema, junto con el código de operación. En cuanto al <i>broker</i>, habría que leer el <i>offset</i> almacenado en el fichero correspondiente.
+
+</p><h2>Entrega de la práctica</h2>
+
+Se realizará en la máquina <tt>triqui</tt>, usando el mandato:
+
+<pre>entrega.sd kaska.2023
+</pre>
+
+<p>
+Este mandato recogerá los siguientes ficheros:
+
+</p><ul>
+<li><tt>autores</tt>
+Fichero con los datos de los autores:
+<pre>DNI APELLIDOS NOMBRE MATRÍCULA
+</pre>
+
+</li><li><tt>memoria.txt</tt>
+El fichero debe existir pero no es obligatorio rellenarlo. Ese fichero puede
+usarlo el alumno, si lo considera oportuno, para realizar los comentarios
+sobre la práctica que desee. 
+
+</li><li><tt>broker/broker.c</tt>
+Código del <i>broker</i>.
+
+</li><li><tt>broker/comun.h</tt>
+Fichero de cabecera donde puede incluir, si lo precisa, definiciones
+comunes a los dos módulos, es decir, al <i>broker</i> y a la biblioteca.
+
+</li><li><tt>broker/comun.c</tt>
+Fichero donde puede incluir, si lo precisa, implementaciones
+comunes a los dos módulos, es decir, al <i>broker</i> y a la biblioteca.
+
+</li><li><tt>libkaska/kaska_client_lib.c</tt>
+Código de la biblioteca.
+
+</li></ul>
+
+
+
+
+</body></html>
