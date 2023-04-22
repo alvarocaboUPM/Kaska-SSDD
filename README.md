@@ -41,3 +41,10 @@ the real-time service architecture
 - Client implementations:
   - `create-topic()`
   - `ntopics`
+
+### v0.2
+
+- Client implementations:
+  - `send_msg`
+  - `msg_length`
+  - `end_offset`
