@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.embeddedhtml": "html",
+        "*.pl": "ciao",
+        "signal.h": "c"
+    }
+}

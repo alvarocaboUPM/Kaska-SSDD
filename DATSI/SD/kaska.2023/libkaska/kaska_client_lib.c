@@ -13,7 +13,7 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
-#define NUM_REQ 3 // REPITE VARIAS VECES (COMO SI FUERAN MÚLTIPLES PETICIONES)
+#define NUM_REQ 3
 
 int client_fd;	  
 struct addrinfo *res;
@@ -52,21 +52,52 @@ __attribute__((constructor)) void inicio(void) {
     }
 }
 
-// kills socket connection after clients main execution
-// __attribute__((destructor)) void fin(void) {
-    
-// }
-
 
 // Crea el tema especificado.
 // Devuelve 0 si OK y un valor negativo en caso de error.
 int create_topic(char *topic) {
-    return 0;
+    int op_code = htonl(0);
+    struct iovec iov[3];
+    // op code
+    iov[0].iov_base = &op_code;
+    iov[0].iov_len = sizeof(op_code);
+    // size of topic name
+    int topic_len = strlen(topic);
+    int arg_size = htonl(topic_len);
+    iov[1].iov_base = &arg_size;
+    iov[1].iov_len = sizeof(arg_size);
+    // topic name
+    iov[2].iov_base = topic;
+    iov[2].iov_len = topic_len;
+
+    if (writev(client_fd, iov, 3) < 0) {
+        perror("error creating topic");
+        close(client_fd);
+        exit(EXIT_FAILURE);
+    }
+    int response;
+    recv(client_fd, &response, sizeof(response), MSG_WAITALL);
+    return response;
 }
 // Devuelve cuántos temas existen en el sistema y un valor negativo
 // en caso de error.
 int ntopics(void) {
-    return 0;
+    int op_code = htonl(1);
+    struct iovec iov[1];
+
+    // op code
+    iov[0].iov_base = &op_code;
+    iov[0].iov_len = sizeof(op_code);
+
+    if ((writev(client_fd, iov, 1)) < 0) {
+        perror("error getting number of topics");
+        close(client_fd);
+        return -1;
+    }
+    uint32_t tmp, response;
+    recv(client_fd, &tmp, sizeof(tmp), MSG_WAITALL);
+    response = ntohl(tmp);
+    return response;
 }
 
 // SEGUNDA FASE: PRODUCIR/PUBLICAR
