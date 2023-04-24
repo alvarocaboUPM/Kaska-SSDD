@@ -17,7 +17,7 @@ the real-time service architecture
    ```bash
     cd broker
     make
-    ./broker BROKER_PORT
+    ./broker $BROKER_PORT
    ```
 
 3. Compile and run the clients

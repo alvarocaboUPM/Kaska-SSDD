@@ -44,7 +44,6 @@ typedef struct Topic
 {
     char *name; // key
     queue *messages;
-    map *subscribers;
 } Topic;
 
 // Message struct
@@ -120,7 +119,6 @@ Topic *new_topic(char *name)
     Topic *newTopic = malloc(sizeof(struct Topic));
     newTopic->name = strdup(name);
     newTopic->messages = queue_create(0);
-    newTopic->subscribers = map_create(key_string, 0);
     return newTopic;
 }
 
@@ -139,7 +137,7 @@ Message *new_msg(int size, char *topic_name)
 }
 
 /**
- * @brief Destroys a Message pointer
+ * @brief Destroys a Message reference
  */
 void free_msg(Message *msg)
 {
@@ -150,6 +148,14 @@ void free_msg(Message *msg)
 /*
         SERVER FUNCTIONS
 */
+
+//Debug functions
+void print_event(void* ev) {
+    Message* msg = ev;
+    fprintf(stderr, "\nIMPRIMIENDO MENSAJE\nTEMA: %s\nBODY: %p", 
+    msg->topic_name,
+    msg->body);
+}
 
 void exit_handler()
 {
@@ -198,18 +204,56 @@ void *service(void *arg)
         // Parsing the request
         code = ntohl(code);
         printf("Recibido operation code: %d\n", code);
-
+        Topic *topic;
+        Message *msg;
         switch (code)
         {
         // new_topic
         case 0:
             char *topic_name = get_topic_name(thinf->socket);
-            Topic* topic = new_topic(topic_name);
-            response=map_put(table_topics, topic_name, topic);
+            topic = new_topic(topic_name);
+            response = map_put(table_topics, topic_name, topic);
             break;
         // n_topics
         case 1:
-            response= htonl(map_size(table_topics));
+            response = htonl(map_size(table_topics));
+            break;
+        // send_msg
+        case 2:
+            topic = map_get(table_topics, get_topic_name(thinf->socket), &response);
+            if (response != 0)
+                break;
+            int size;
+            recv(thinf->socket, &size, sizeof(int), MSG_WAITALL);
+            size = ntohl(size);
+
+            msg = new_msg(size, topic->name);
+            recv(thinf->socket, msg->body, size, MSG_WAITALL);
+
+            queue_append(topic->messages, msg);
+            response=msg->size;
+            //free_msg(msg);
+            break;
+        // msg_length
+        case 3:
+            topic = map_get(table_topics, get_topic_name(thinf->socket), &response);
+            if (response != 0)
+                break;
+            int offset;
+            recv(thinf->socket, &offset, sizeof(int), MSG_WAITALL);
+            offset = ntohl(offset);
+
+            msg = queue_get(topic->messages,offset,&response);
+            if (response == 0)
+            response = msg->size;
+            //free_msg(msg);
+            break;
+        // end_offset
+        case 4:
+            break;
+
+        // sub
+        case 5:
             break;
         default:
             fprintf(stderr, "Operation not allowed with code %d\n", code);
