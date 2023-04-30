@@ -1,4 +1,4 @@
-CFLAGS=-Wall -g -fPIC -I../util
+CFLAGS=-Wall -g -fPIC -I../util -Wno-unused-function
 
 all: libutil libkaska.so
 
@@ -12,5 +12,3 @@ kaska_client_lib.o: comun.h  kaska.h
 
 clean:
 	rm -f *.o libkaska.so
-
-
