@@ -220,7 +220,7 @@ void *service(void *arg)
         }
         // Parsing the request
         code = ntohl(code);
-        printf("Code: %d\n", code);
+        //printf("Code: %d\n", code);
         Topic *topic;
         switch (code)
         {
@@ -290,10 +290,16 @@ void *service(void *arg)
             break;
         // sub
         case 5:
-            break;
 
+            break;
         // un-sub
         case 6:
+            break;
+        // position
+        case 7:
+            break;
+        // seek
+        case 8:
             break;
         default:
             fprintf(stderr, "Operation not allowed with code %d\n", code);
