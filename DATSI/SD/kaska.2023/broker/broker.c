@@ -44,6 +44,7 @@ typedef struct Topic
 {
     char *name; // key
     queue *messages;
+    int offset;
 } Topic;
 
 // Message struct
@@ -56,12 +57,12 @@ typedef struct Message
 } Message;
 
 // Client struct
-typedef struct Sub
-{
-    char *SID; // key
-    int offset;
-    map *sub_topics;
-} Sub;
+// typedef struct Sub
+// {
+//     char *SID; // key
+//     int offset;
+//     map *sub_topics;
+// } Sub;
 
 //========STATIC FUNCTIONS==========
 
@@ -118,6 +119,7 @@ Topic *new_topic(char *name)
 {
     Topic *newTopic = malloc(sizeof(struct Topic));
     newTopic->name = strdup(name);
+    newTopic->offset = 0;
     newTopic->messages = queue_create(0);
     return newTopic;
 }
@@ -145,16 +147,36 @@ void free_msg(Message *msg)
     free(msg);
 }
 
+// Debug functions
+void print_msg(void *ev)
+{
+    Message *msg = ev;
+    fprintf(stderr, "\nIMPRIMIENDO MENSAJE\nTEMA: %s\nBODY: %p",
+            msg->topic_name,
+            msg->body);
+}
+
 /*
         SERVER FUNCTIONS
 */
 
-//Debug functions
-void print_event(void* ev) {
-    Message* msg = ev;
-    fprintf(stderr, "\nIMPRIMIENDO MENSAJE\nTEMA: %s\nBODY: %p", 
-    msg->topic_name,
-    msg->body);
+/**
+ * @brief reads and discards the remaining information passed
+ * in case of error
+ * @param socket 
+ */
+int purge_socket(int socket)
+{
+    char buffer[1024];
+    int bytes_read;
+    int total_bytes_read = 0;
+
+    // Keep reading and discarding data until there is no more data left to read
+    while ((bytes_read = recv(socket, buffer, sizeof(buffer), MSG_DONTWAIT)) > 0) {
+        total_bytes_read += bytes_read;
+    }
+
+    return total_bytes_read;
 }
 
 void exit_handler()
@@ -199,13 +221,15 @@ void *service(void *arg)
     int code, response;
     thread_info *thinf = arg;
 
-    while (recv(thinf->socket, &code, sizeof(int), MSG_WAITALL) == sizeof(int))
+    while (purge_socket(thinf->socket)==0)
     {
+        if(recv(thinf->socket, &code, sizeof(int), MSG_WAITALL) != sizeof(int)){
+            break;
+        }
         // Parsing the request
         code = ntohl(code);
-        printf("Recibido operation code: %d\n", code);
+        printf("Code: %d\n", code);
         Topic *topic;
-        Message *msg;
         switch (code)
         {
         // new_topic
@@ -220,46 +244,64 @@ void *service(void *arg)
             break;
         // send_msg
         case 2:
-            topic = map_get(table_topics, get_topic_name(thinf->socket), &response);
+            topic = (Topic *)map_get(table_topics, get_topic_name(thinf->socket), &response);
+
             if (response != 0)
+            {
+                // depura el socket
+                purge_socket(thinf->socket);
+                //printf("Depurado-> %d\n",purge_socket(thinf->socket));
                 break;
+            }
+
             int size;
             recv(thinf->socket, &size, sizeof(int), MSG_WAITALL);
             size = ntohl(size);
 
-            msg = new_msg(size, topic->name);
+            Message *msg = new_msg(size, topic->name);
             recv(thinf->socket, msg->body, size, MSG_WAITALL);
 
             queue_append(topic->messages, msg);
-            response=msg->size;
-            //free_msg(msg);
+            response = topic->offset;
+            topic->offset++;
             break;
         // msg_length
         case 3:
             topic = map_get(table_topics, get_topic_name(thinf->socket), &response);
             if (response != 0)
+            {
+                // depura el socket
+                purge_socket(thinf->socket);
+                //printf("Depurado-> %d\n",purge_socket(thinf->socket));
                 break;
+            }
             int offset;
             recv(thinf->socket, &offset, sizeof(int), MSG_WAITALL);
             offset = ntohl(offset);
 
-            msg = queue_get(topic->messages,offset,&response);
+            Message *msg_l = queue_get(topic->messages, offset, &response);
             if (response == 0)
-            response = msg->size;
-            //free_msg(msg);
+                response = msg_l->size;
+            // free_msg(msg_l);
             break;
         // end_offset
         case 4:
+            topic = map_get(table_topics, get_topic_name(thinf->socket), &response);
+            if (response != 0)
+            {
+                // depura el socket
+                purge_socket(thinf->socket);
+                //printf("Depurado-> %d\n",purge_socket(thinf->socket));
+                break;
+            }
+            response=topic->offset;
             break;
-
         // sub
         case 5:
             break;
         default:
             fprintf(stderr, "Operation not allowed with code %d\n", code);
-            break;
         }
-
         // envía un code como respuesta
         send(thinf->socket, &response, sizeof(response), 0);
     }
