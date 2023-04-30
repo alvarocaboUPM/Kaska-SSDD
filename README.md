@@ -17,7 +17,7 @@ the real-time service architecture
    ```bash
     cd broker
     make
-    ./broker BROKER_PORT
+    ./broker $BROKER_PORT
    ```
 
 3. Compile and run the clients
@@ -41,3 +41,10 @@ the real-time service architecture
 - Client implementations:
   - `create-topic()`
   - `ntopics`
+
+### v0.2
+
+- Client implementations:
+  - `send_msg`
+  - `msg_length`
+  - `end_offset`

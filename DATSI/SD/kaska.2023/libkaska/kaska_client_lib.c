@@ -102,23 +102,98 @@ int ntopics(void) {
 
 // SEGUNDA FASE: PRODUCIR/PUBLICAR
 
-// Envía el mensaje al tema especificado; nótese la necesidad
-// de indicar el tamaño ya que puede tener un contenido de tipo binario.
-// Devuelve el offset si OK y un valor negativo en caso de error.
+/** Envía el mensaje al tema especificado; nótese la necesidad
+ de indicar el tamaño ya que puede tener un contenido de tipo binario.
+ Devuelve el offset si OK y un valor negativo en caso de error. 
+ */
 int send_msg(char *topic, int msg_size, void *msg) {
-    return 0;
+    int op_code = htonl(2);
+    struct iovec iov[5];
+    // op code
+    iov[0].iov_base = &op_code;
+    iov[0].iov_len = sizeof(op_code);
+    // size of topic name
+    int topic_len = strlen(topic);
+    int arg_size = htonl(topic_len);
+    iov[1].iov_base = &arg_size;
+    iov[1].iov_len = sizeof(arg_size);
+    // topic name
+    iov[2].iov_base = topic;
+    iov[2].iov_len = topic_len;
+    // msg size
+    int msg_size_nl = htonl(msg_size);
+    iov[3].iov_base = &msg_size_nl;
+    iov[3].iov_len = sizeof(msg_size_nl);
+    // msg body
+    iov[4].iov_base = msg;
+    iov[4].iov_len = msg_size;
+
+    if (writev(client_fd, iov, 5) < 0) {
+        perror("error publishing a message");
+        close(client_fd);
+        exit(EXIT_FAILURE);
+    }
+    int response;
+    recv(client_fd, &response, sizeof(response), MSG_WAITALL);
+    return response;
 }
 // Devuelve la longitud del mensaje almacenado en ese offset del tema indicado
 // y un valor negativo en caso de error.
 int msg_length(char *topic, int offset) {
-    return 0;
+    int op_code = htonl(3);
+    struct iovec iov[4];
+    // op code
+    iov[0].iov_base = &op_code;
+    iov[0].iov_len = sizeof(op_code);
+    // size of topic name
+    int topic_len = strlen(topic);
+    int arg_size = htonl(topic_len);
+    iov[1].iov_base = &arg_size;
+    iov[1].iov_len = sizeof(arg_size);
+    // topic name
+    iov[2].iov_base = topic;
+    iov[2].iov_len = topic_len;
+    // offset
+    int offset_nl = htonl(offset);
+    iov[3].iov_base = &offset_nl;
+    iov[3].iov_len = sizeof(offset_nl);
+    
+    if (writev(client_fd, iov, 4) < 0) {
+        perror("error getting msg length");
+        close(client_fd);
+        exit(EXIT_FAILURE);
+    }
+    int response;
+    recv(client_fd, &response, sizeof(response), MSG_WAITALL);
+    return response;
 }
 // Obtiene el último offset asociado a un tema en el broker, que corresponde
 // al del último mensaje enviado más uno y, dado que los mensajes se
 // numeran desde 0, coincide con el número de mensajes asociados a ese tema.
 // Devuelve ese offset si OK y un valor negativo en caso de error.
 int end_offset(char *topic) {
-    return 0;
+    int op_code = htonl(4);
+    struct iovec iov[3];
+    // op code
+    iov[0].iov_base = &op_code;
+    iov[0].iov_len = sizeof(op_code);
+    // size of topic name
+    int topic_len = strlen(topic);
+    int arg_size = htonl(topic_len);
+    iov[1].iov_base = &arg_size;
+    iov[1].iov_len = sizeof(arg_size);
+    // topic name
+    iov[2].iov_base = topic;
+    iov[2].iov_len = topic_len;
+    
+    if (writev(client_fd, iov, 3) < 0) {
+        perror("error getting num of msgs");
+        close(client_fd);
+        exit(EXIT_FAILURE);
+    }
+    int response;
+    recv(client_fd, &response, sizeof(response), MSG_WAITALL);
+    return response;
 }
 
 // TERCERA FASE: SUBSCRIPCIÓN

@@ -1,5 +1,8 @@
 others
 DATSI/SD/kaska.2023/ejemplo_sockets
+traza
+
+*.log
 
 *.txt
 # Prerequisites
