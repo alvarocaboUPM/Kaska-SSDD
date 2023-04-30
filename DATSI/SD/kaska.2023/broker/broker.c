@@ -1,6 +1,6 @@
 /*========================================================
  * 			   BROKER.c by Álvaro Cabo
- *			  	    Versión 0.2
+ *			  	    Versión 0.3
  *			  	     20/04/2023
  * ========================================================
  */
@@ -55,14 +55,6 @@ typedef struct Message
     char *topic_name;
     int subbed_clients;
 } Message;
-
-// Client struct
-// typedef struct Sub
-// {
-//     char *SID; // key
-//     int offset;
-//     map *sub_topics;
-// } Sub;
 
 //========STATIC FUNCTIONS==========
 
@@ -298,6 +290,10 @@ void *service(void *arg)
             break;
         // sub
         case 5:
+            break;
+
+        // un-sub
+        case 6:
             break;
         default:
             fprintf(stderr, "Operation not allowed with code %d\n", code);

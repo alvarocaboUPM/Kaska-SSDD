@@ -48,3 +48,11 @@ the real-time service architecture
   - `send_msg`
   - `msg_length`
   - `end_offset`
+  
+### v0.3
+
+- Client implementations:
+  - `subscribe`
+  - `unsubscribe`
+  - `position`
+  - `seek`
