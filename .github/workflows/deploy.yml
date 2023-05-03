@@ -22,7 +22,7 @@ jobs:
         sudo openfortivpn vpnssl.upm.es --username=alvaro.cabo@alumnos.upm.es --password=${{ secrets.VPN_PW }} &
 
     - name: Wait for VPN to Connect
-      run: sleep 30s
+      run: sleep 10s
 
     - name: SSH to Server and Pull Changes
       uses: appleboy/ssh-action@master
@@ -32,8 +32,8 @@ jobs:
         password: ${{ secrets.SERVER_PASSWORD }}
         port: 22
         script: |
-          cd /path/to/git/repo
-          git pull
+          cd ~/DATSI/SD/kaska.2023
+          git clone
 
     - name: Run Script on Server
       uses: appleboy/ssh-action@master
@@ -43,5 +43,4 @@ jobs:
         password: ${{ secrets.SERVER_PASSWORD }}
         port: ${{ secrets.SERVER_PORT }}
         script: |
-          cd /path/to/git/repo
-          entr
+          entrega.sd kaska.2023
