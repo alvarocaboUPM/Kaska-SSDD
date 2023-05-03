@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
+#include <stdbool.h>
 #define NUM_REQ 3
 
 int client_fd;
@@ -25,7 +26,6 @@ typedef struct offset
 {
     int o;
 }Offset;
-
 
 // inicializa el socket y se conecta al servidor
 static int init_socket_client()
@@ -68,6 +68,43 @@ static void free_entry(void *k, void *v) {
     if (v) free(v);
 }
 
+/**
+ * @brief Checks for offset diff with the server
+ * 
+ * @param m map
+ * @return byte[] with the values
+ */
+static int map_polling(char* topic, Offset* off){
+   int op_code = htonl(5);
+    struct iovec iov[5];
+    // op code
+    iov[0].iov_base = &op_code;
+    iov[0].iov_len = sizeof(op_code);
+    // size of topic name
+    int topic_len = strlen(topic);
+    int arg_size = htonl(topic_len);
+    iov[1].iov_base = &arg_size;
+    iov[1].iov_len = sizeof(arg_size);
+    // topic name
+    iov[2].iov_base = topic;
+    iov[2].iov_len = topic_len;
+    // msg size
+    int msg_size_nl = htonl(off->o);
+    iov[3].iov_base = &msg_size_nl;
+    iov[3].iov_len = sizeof(msg_size_nl);
+
+
+    if (writev(client_fd, iov, 4) < 0)
+    {
+        perror("error polling a message");
+        close(client_fd);
+        exit(EXIT_FAILURE);
+    }
+    int response;
+    recv(client_fd, &response, sizeof(response), MSG_WAITALL);
+    return response;
+}
+
 static void print_subbed_map(){
     map_position*p = map_alloc_position(subbed_table); 
     map_iter * it = map_iter_init(subbed_table,p);
@@ -83,6 +120,7 @@ static void print_subbed_map(){
     }
     p=map_iter_exit(it);
 }
+
 
 // inits socket connection before clients main execution
 __attribute__((constructor)) void inicio(void)
@@ -340,7 +378,21 @@ int seek(char *topic, int offset)
 // y un número negativo en caso de error.
 int poll(char **topic, void **msg)
 {
+    map_position* p = map_alloc_position(subbed_table);
+    map_iter * it = map_iter_init(subbed_table,p);
+    char* key;
+    Offset* o;
+    bool found;
+
+    for (found=false; found!=true && it && map_iter_has_next(it); map_iter_next(it)) 
+    {
+        map_iter_value(it, (const void **) &key, (void **) &o);
+        if(msg_length(key,o->o)>0)
+        ;
+        
+    }
     return 0;
+    //return map_iter_exit(it);
 }
 
 // QUINTA FASE: COMMIT OFFSETS

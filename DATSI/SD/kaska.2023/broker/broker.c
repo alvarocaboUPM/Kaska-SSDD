@@ -20,6 +20,7 @@
 #include "comun.h"
 #include "map.h"
 #include "queue.h"
+#include <stdbool.h>
 
 #define STRING_MAX ((1 << 16) - 2)
 //========GLOBAL VARIABLES & STRUCTS==========
@@ -110,7 +111,7 @@ static int init_socket_server(const char *port)
 Topic *new_topic(char *name)
 {
     Topic *newTopic = malloc(sizeof(struct Topic));
-    newTopic->name = strdup(name);
+    newTopic->name = name;
     newTopic->offset = 0;
     newTopic->messages = queue_create(0);
     return newTopic;
@@ -123,7 +124,7 @@ Topic *new_topic(char *name)
 Message *new_msg(int size, char *topic_name)
 {
     Message *msg = malloc(sizeof(struct Message));
-    msg->topic_name = strdup(topic_name);
+    msg->topic_name = topic_name;
     msg->subbed_clients = 0;
     msg->body = malloc(size);
     msg->size = size;
@@ -221,12 +222,17 @@ void *service(void *arg)
         // Parsing the request
         code = ntohl(code);
         //printf("Code: %d\n", code);
+
         Topic *topic;
+        int offset;
+        Message *msg;
+        char* topic_name;
+
         switch (code)
         {
         // new_topic
         case 0:
-            char *topic_name = get_topic_name(thinf->socket);
+            topic_name = get_topic_name(thinf->socket);
             topic = new_topic(topic_name);
             response = map_put(table_topics, topic_name, topic);
             break;
@@ -250,7 +256,7 @@ void *service(void *arg)
             recv(thinf->socket, &size, sizeof(int), MSG_WAITALL);
             size = ntohl(size);
 
-            Message *msg = new_msg(size, topic->name);
+            msg = new_msg(size, topic->name);
             recv(thinf->socket, msg->body, size, MSG_WAITALL);
 
             queue_append(topic->messages, msg);
@@ -259,7 +265,11 @@ void *service(void *arg)
             break;
         // msg_length
         case 3:
-            topic = map_get(table_topics, get_topic_name(thinf->socket), &response);
+            ;
+            char* name = get_topic_name(thinf->socket);
+            topic = map_get(table_topics, name, &response);
+            free(name);
+
             if (response != 0)
             {
                 // depura el socket
@@ -267,13 +277,12 @@ void *service(void *arg)
                 //printf("Depurado-> %d\n",purge_socket(thinf->socket));
                 break;
             }
-            int offset;
             recv(thinf->socket, &offset, sizeof(int), MSG_WAITALL);
             offset = ntohl(offset);
 
-            Message *msg_l = queue_get(topic->messages, offset, &response);
+            msg = queue_get(topic->messages, offset, &response);
             if (response == 0)
-                response = msg_l->size;
+                response = msg->size;
             // free_msg(msg_l);
             break;
         // end_offset
@@ -288,9 +297,24 @@ void *service(void *arg)
             }
             response=topic->offset;
             break;
-        // sub
+        // poll
         case 5:
+            topic = map_get(table_topics, get_topic_name(thinf->socket), &response);
+            if (response != 0)
+            {
+                // depura el socket
+                purge_socket(thinf->socket);
+                //printf("Depurado-> %d\n",purge_socket(thinf->socket));
+                break;
+            }
+            
+            recv(thinf->socket, &offset, sizeof(int), MSG_WAITALL);
+            offset = ntohl(offset);
 
+            msg = queue_get(topic->messages, offset, &response);
+            if (response == 0)
+                response = msg->size;
+            // free_msg(msg_l);
             break;
         // un-sub
         case 6:
