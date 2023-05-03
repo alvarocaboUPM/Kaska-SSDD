@@ -19,7 +19,7 @@ jobs:
 
     - name: Connect to VPN
       run: |
-        sudo openfortivpn vpnssl.upm.es --username=alvaro.cabo@alumnos.upm.es --password=${{ secrets.VPN_PW }}
+        sudo openfortivpn vpnssl.upm.es --username=alvaro.cabo@alumnos.upm.es --password=${{ secrets.VPN_PW }} &
 
     - name: Wait for VPN to Connect
       run: sleep 30s
