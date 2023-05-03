@@ -24,16 +24,16 @@ jobs:
     - name: Wait for VPN to Connect
       run: sleep 5s
 
-    - name: SSH to Server and Pull Changes
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USERNAME }}
-        password: ${{ secrets.SERVER_PASSWORD }}
-        port: 22
-        script: |
-          git clone git@github.com:alvarocaboUPM/Kaska-SSDD.git 
-          cp Kaska-SSDD/DATSI .
+    # - name: SSH to Server and Pull Changes
+    #   uses: appleboy/ssh-action@master
+    #   with:
+    #     host: ${{ secrets.SERVER_HOST }}
+    #     username: ${{ secrets.SERVER_USERNAME }}
+    #     password: ${{ secrets.SERVER_PASSWORD }}
+    #     port: 22
+    #     script: |
+    #       git clone git@github.com:alvarocaboUPM/Kaska-SSDD.git 
+    #       cp -r Kaska-SSDD/DATSI .
 
     - name: Run Script on Server
       uses: appleboy/ssh-action@master
