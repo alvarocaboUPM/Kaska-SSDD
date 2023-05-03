@@ -32,7 +32,8 @@ jobs:
         password: ${{ secrets.SERVER_PASSWORD }}
         port: 22
         script: |
-          git clone git@github.com:alvarocaboUPM/Kaska-SSDD.git .
+          git clone git@github.com:alvarocaboUPM/Kaska-SSDD.git 
+          cp Kaska-SSDD/DATSI .
 
     - name: Run Script on Server
       uses: appleboy/ssh-action@master
