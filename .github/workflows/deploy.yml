@@ -32,10 +32,22 @@ jobs:
         password: ${{ secrets.SERVER_PASSWORD }}
         port: 22
         script: |
+          # Set proxy
           git config --global http.proxy http://proxy.fi.upm.es:8080
           git config --global https.proxy http://proxy.fi.upm.es:8080
-          git clone git@github.com:alvarocaboUPM/Kaska-SSDD.git 
-          cp -r Kaska-SSDD/DATSI .
+
+          # Check if Kaska-SSDD directory exists
+          if [ -d "Kaska-SSDD" ]; then
+            # Kaska-SSDD directory exists, do a git pull
+            cd DATSI
+            git pull
+            cd ..
+          else
+            # Kaska-SSDD directory doesn't exist, do a git clone
+            git clone https://{{ secrets.TOKEN_GITHUB }}github.com/alvarocaboUPM/Kaska-SSDD/
+            cp -r Kaska-SSDD/DATSI .
+          fi
+
 
     - name: Run Script on Server
       uses: appleboy/ssh-action@master
@@ -45,4 +57,4 @@ jobs:
         password: ${{ secrets.SERVER_PASSWORD }}
         port: ${{ secrets.SERVER_PORT }}
         script: |
-          echo "S S" | entrega.sd kaska.2023
+          yes s | entrega.sd kaska.2023
