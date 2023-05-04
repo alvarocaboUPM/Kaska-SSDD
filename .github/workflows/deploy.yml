@@ -20,10 +20,6 @@ jobs:
     - name: Connect to VPN
       run: |
         sudo openfortivpn vpnssl.upm.es --username=alvaro.cabo@alumnos.upm.es --password=${{ secrets.VPN_PW }} &
-
-    - name: Wait for VPN to Connect
-      run: sleep 5s
-
     - name: SSH to Server and Pull Changes
       uses: appleboy/ssh-action@master
       with:
@@ -39,15 +35,14 @@ jobs:
           # Check if Kaska-SSDD directory exists
           if [ -d "Kaska-SSDD" ]; then
             # Kaska-SSDD directory exists, do a git pull
-            cd DATSI
+            cd Kaska-SSDD
             git pull
-            cd ..
+            cp -r DATSI/ ..
           else
             # Kaska-SSDD directory doesn't exist, do a git clone
             git clone https://{{secrets.TOKEN_GITHUB}}@github.com/alvarocaboUPM/Kaska-SSDD/
             cp -r Kaska-SSDD/DATSI .
           fi
-
 
     - name: Run Script on Server
       uses: appleboy/ssh-action@master
