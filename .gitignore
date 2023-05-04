@@ -4,7 +4,6 @@ traza
 
 *.log
 
-*.txt
 # Prerequisites
 *.d
 

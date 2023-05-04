@@ -31,7 +31,8 @@ jobs:
           # Set proxy
           git config --global http.proxy http://proxy.fi.upm.es:8080
           git config --global https.proxy http://proxy.fi.upm.es:8080
-
+          git config pull.rebase false
+          
           # Check if Kaska-SSDD directory exists
           if [ -d "Kaska-SSDD" ]; then
             # Kaska-SSDD directory exists, do a git pull
