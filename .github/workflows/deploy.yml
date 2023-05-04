@@ -44,7 +44,7 @@ jobs:
             cd ..
           else
             # Kaska-SSDD directory doesn't exist, do a git clone
-            git clone https://{{ secrets.TOKEN_GITHUB }}github.com/alvarocaboUPM/Kaska-SSDD/
+            git clone https://{{ secrets.TOKEN_GITHUB }}@github.com/alvarocaboUPM/Kaska-SSDD/
             cp -r Kaska-SSDD/DATSI .
           fi
 
