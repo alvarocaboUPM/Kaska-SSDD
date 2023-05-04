@@ -45,4 +45,4 @@ jobs:
         password: ${{ secrets.SERVER_PASSWORD }}
         port: ${{ secrets.SERVER_PORT }}
         script: |
-          entrega.sd kaska.2023
+          echo "S S" | entrega.sd kaska.2023

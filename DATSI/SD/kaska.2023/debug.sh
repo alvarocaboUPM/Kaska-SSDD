@@ -36,8 +36,8 @@ make
 
 # Check if make command was successful
 if [ $? -eq 0 ]; then
-  #strace -f -o traza ./test
-  valgrind -s ./test
+  strace -f -o traza ./test
+  #valgrind -s ./test
 else
   echo "Make command for CLIENT failed with exit code $?"
 fi
