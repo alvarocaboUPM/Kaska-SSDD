@@ -15,7 +15,6 @@ if [ $? -eq 0 ]; then
     echo "Killed the process running at port $BROKER_PORT"
   else
     echo "Failed to kill the process running at port $BROKER_PORT"
-    exit 1
   fi
 fi
 
