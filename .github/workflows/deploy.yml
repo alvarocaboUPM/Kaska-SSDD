@@ -58,7 +58,7 @@ jobs:
           cd broker
           make && echo Broker build successfully
           cd ../clients
-          make && echo Client build successfully
+          make && echo Client build successfully!!
           cd ..
 
     - name: Run Script on Server
