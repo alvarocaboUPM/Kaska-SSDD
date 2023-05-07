@@ -22,7 +22,7 @@ jobs:
         sudo openfortivpn vpnssl.upm.es --username=alvaro.cabo@alumnos.upm.es --password=${{ secrets.VPN_PW }} &
     
     - name: SSH to Server and Pull Changes
-      uses: appleboy/ssh-action@master
+      uses: appleboy/ssh-action@v0.1.9
       with:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USERNAME }}
@@ -47,7 +47,7 @@ jobs:
           fi
 
     - name: Build proyect
-      uses: appleboy/ssh-action@master
+      uses: appleboy/ssh-action@v0.1.9
       with:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USERNAME }}
@@ -62,7 +62,7 @@ jobs:
           cd ..
 
     - name: Run Script on Server
-      uses: appleboy/ssh-action@master
+      uses: appleboy/ssh-action@v0.1.9
       with:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USERNAME }}
