@@ -35,6 +35,7 @@ make
 
 # Check if make command was successful
 if [ $? -eq 0 ]; then
+  #gdb -x ./test 
   strace -f -o traza ./test
   #valgrind -s ./test
 else

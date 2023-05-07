@@ -16,7 +16,7 @@
 #include <stdbool.h>
 #define NUM_REQ 3
 
-int client_fd=-1;
+int client_fd = -1;
 struct addrinfo *res;
 
 //<TopicName,Offset>
@@ -25,7 +25,7 @@ map *subbed_table;
 typedef struct offset
 {
     int o;
-}Offset;
+} Offset;
 
 // inicializa el socket y se conecta al servidor
 static int init_socket_client()
@@ -37,7 +37,7 @@ static int init_socket_client()
         return -1;
     }
 
-    //printf("Socket iniciado con FD: %d\n", client_fd);
+    // printf("Socket iniciado con FD: %d\n", client_fd);
     char *HOST = getenv("BROKER_HOST");
     char *PORT = getenv("BROKER_PORT");
 
@@ -59,24 +59,41 @@ static int init_socket_client()
     return client_fd;
 }
 
+static int crear_conexion()
+{
+    if (client_fd == -1)
+    {
+        printf("Nueva conexión en cliente %d\n", init_socket_client());
+        if (client_fd < 0)
+        {
+            perror("Error initializing socket client");
+            return -1;
+        }
+    }
+    return 0;
+}
+
 /**
  * @brief Frees a subbed_table entry
- * 
+ *
  * @param k String
  * @param v Offset
  */
-static void free_entry(void *k, void *v) {
-    if (v) free(v);
+static void free_entry(void *k, void *v)
+{
+    if (v)
+        free(v);
 }
 
 /**
  * @brief Checks for offset diff with the server
- * 
+ *
  * @param m map
  * @return byte[] with the values
  */
-static int map_polling(char* topic, Offset* off){
-   int op_code = htonl(5);
+static int map_polling(char *topic, Offset *off)
+{
+    int op_code = htonl(5);
     struct iovec iov[5];
     // op code
     iov[0].iov_base = &op_code;
@@ -94,7 +111,6 @@ static int map_polling(char* topic, Offset* off){
     iov[3].iov_base = &msg_size_nl;
     iov[3].iov_len = sizeof(msg_size_nl);
 
-
     if (writev(client_fd, iov, 4) < 0)
     {
         perror("error polling a message");
@@ -106,27 +122,27 @@ static int map_polling(char* topic, Offset* off){
     return response;
 }
 
-static void print_subbed_map(){
-    map_position*p = map_alloc_position(subbed_table); 
-    map_iter * it = map_iter_init(subbed_table,p);
-    char* key;
-    Offset* o;
-    int i=0;
+static void print_subbed_map()
+{
+    map_position *p = map_alloc_position(subbed_table);
+    map_iter *it = map_iter_init(subbed_table, p);
+    char *key;
+    Offset *o;
+    int i = 0;
 
     puts("");
-    for (; it && map_iter_has_next(it); map_iter_next(it)) 
+    for (; it && map_iter_has_next(it); map_iter_next(it))
     {
-        map_iter_value(it, (const void **) &key, (void **) &o);
+        map_iter_value(it, (const void **)&key, (void **)&o);
         printf("%d:después de subscribe: nombre %s offset %d\n", i++, key, o->o);
     }
-    p=map_iter_exit(it);
+    p = map_iter_exit(it);
 }
 
-
-// inits socket connection before clients main execution
+//inits socket connection before clients main execution
 // __attribute__((constructor)) void inicio(void)
 // {
-//     if (init_socket_client() < 0)
+//     if (crear_conexion() < 0)
 //     {
 //         _exit(1);
 //     }
@@ -136,9 +152,11 @@ static void print_subbed_map(){
 // Devuelve 0 si OK y un valor negativo en caso de error.
 int create_topic(char *topic)
 {
-    if(client_fd==-1){
-        printf("Nueva conexión en cliente %d\n", init_socket_client());
-    }
+    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
+
+        return -1;
+
+}
     int op_code = htonl(0);
     struct iovec iov[3];
     // op code
@@ -167,9 +185,11 @@ int create_topic(char *topic)
 // en caso de error.
 int ntopics(void)
 {
-    if(client_fd==-1){
-        printf("Nueva conexión en cliente %d\n", init_socket_client());
-    }
+    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
+
+        return -1;
+
+}
     int op_code = htonl(1);
     struct iovec iov[1];
 
@@ -197,9 +217,11 @@ int ntopics(void)
  */
 int send_msg(char *topic, int msg_size, void *msg)
 {
-    if(client_fd==-1){
-        printf("Nueva conexión en cliente %d\n", init_socket_client());
-    }
+    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
+
+        return -1;
+
+}
     int op_code = htonl(2);
     struct iovec iov[5];
     // op code
@@ -235,9 +257,11 @@ int send_msg(char *topic, int msg_size, void *msg)
 // y un valor negativo en caso de error.
 int msg_length(char *topic, int offset)
 {
-    if(client_fd==-1){
-        printf("Nueva conexión en cliente %d\n", init_socket_client());
-    }
+    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
+
+        return -1;
+
+}
     int op_code = htonl(3);
     struct iovec iov[4];
     // op code
@@ -268,13 +292,15 @@ int msg_length(char *topic, int offset)
 }
 // Obtiene el último offset asociado a un tema en el broker, que corresponde
 // al del último mensaje enviado más uno y, dado que los mensajes se
-// numeran desde 0, coincide con el número de mensajes asociados a ese tema.
+// numeran declient_fde 0, coincide con el número de mensajes asociados a ese tema.
 // Devuelve ese offset si OK y un valor negativo en caso de error.
 int end_offset(char *topic)
 {
-    if(client_fd==-1){
-        printf("Nueva conexión en cliente %d\n", init_socket_client());
-    }
+    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
+
+        return -1;
+
+}
     int op_code = htonl(4);
     struct iovec iov[3];
     // op code
@@ -313,10 +339,13 @@ int end_offset(char *topic)
  */
 int subscribe(int ntopics, char **topics)
 {
-    if(client_fd==-1){
-        printf("Nueva conexión en cliente %d\n", init_socket_client());
-    }
-    if (subbed_table!=NULL){
+    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
+
+        return -1;
+
+}
+    if (subbed_table != NULL)
+    {
         print_subbed_map();
         return -1;
     }
@@ -326,21 +355,22 @@ int subscribe(int ntopics, char **topics)
 
     for (int i = 0; i < ntopics; i++)
     {
-        int repetido,v;
-        Offset* off=(Offset*)malloc(sizeof(Offset));
+        int repetido, v;
+        Offset *off = (Offset *)malloc(sizeof(Offset));
 
-        char* t_name=strdup(topics[i]);
+        char *t_name = strdup(topics[i]);
         map_get(subbed_table, t_name, &repetido);
 
-        //Existe tema y no duplicado
-        if (repetido<0 && (v = end_offset(t_name))>= 0){
-            off->o=v;
+        // Existe tema y no duplicado
+        if (repetido < 0 && (v = end_offset(t_name)) >= 0)
+        {
+            off->o = v;
             map_put(subbed_table, t_name, off);
             subbed_topics++;
         }
     }
 
-    //Debug
+    // Debug
     print_subbed_map();
 
     return subbed_topics;
@@ -350,15 +380,17 @@ int subscribe(int ntopics, char **topics)
 // Devuelve 0 si OK y un valor negativo si no había suscripciones activas.
 int unsubscribe(void)
 {
-    if(client_fd==-1){
-        printf("Nueva conexión en cliente %d\n", init_socket_client());
-    }
+    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
+
+        return -1;
+
+}
     if (subbed_table == NULL)
         return -1;
     int size = map_size(subbed_table);
-    if (map_destroy(subbed_table, free_entry)<0|| size == 0)
+    if (map_destroy(subbed_table, free_entry) < 0 || size == 0)
         return -1;
-    subbed_table=NULL;
+    subbed_table = NULL;
     return 0;
 }
 
@@ -366,36 +398,38 @@ int unsubscribe(void)
 // caso de error.
 int position(char *topic)
 {
-    if(client_fd==-1){
-        printf("Nueva conexión en cliente %d\n", init_socket_client());
-    }
+    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
+
+        return -1;
+
+}
     int res;
-    Offset* r = map_get(subbed_table, topic, &res);
-    if (res==0)
+    Offset *r = map_get(subbed_table, topic, &res);
+    if (res == 0)
     {
-        res=r->o;
+        res = r->o;
     }
 
     return res;
-    
 }
 
 // Modifica el offset del cliente para ese tema.
 // Devuelve 0 si OK y un número negativo en caso de error.
 int seek(char *topic, int offset)
 {
-    if(client_fd==-1){
-        printf("Nueva conexión en cliente %d\n", init_socket_client());
-    }
+    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
+
+        return -1;
+
+}
     int res;
-    Offset* r = map_get(subbed_table, topic, &res);
-    if (res==0)
+    Offset *r = map_get(subbed_table, topic, &res);
+    if (res == 0)
     {
-        r->o=offset;
+        r->o = offset;
     }
 
     return res;
-    
 }
 
 // CUARTA FASE: LEER MENSAJES
@@ -406,24 +440,25 @@ int seek(char *topic, int offset)
 // y un número negativo en caso de error.
 int poll(char **topic, void **msg)
 {
-    if(client_fd==-1){
-        printf("Nueva conexión en cliente %d\n", init_socket_client());
-    }
-    map_position* p = map_alloc_position(subbed_table);
-    map_iter * it = map_iter_init(subbed_table,p);
-    char* key;
-    Offset* o;
+    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
+
+        return -1;
+
+}
+    map_position *p = map_alloc_position(subbed_table);
+    map_iter *it = map_iter_init(subbed_table, p);
+    char *key;
+    Offset *o;
     bool found;
 
-    for (found=false; found!=true && it && map_iter_has_next(it); map_iter_next(it)) 
+    for (found = false; found != true && it && map_iter_has_next(it); map_iter_next(it))
     {
-        map_iter_value(it, (const void **) &key, (void **) &o);
-        if(msg_length(key,o->o)>0)
-        ;
-        
+        map_iter_value(it, (const void **)&key, (void **)&o);
+        if (msg_length(key, o->o) > 0)
+            ;
     }
     return 0;
-    //return map_iter_exit(it);
+    // return map_iter_exit(it);
 }
 
 // QUINTA FASE: COMMIT OFFSETS
