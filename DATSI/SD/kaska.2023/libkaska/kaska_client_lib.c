@@ -139,13 +139,13 @@ static void print_subbed_map()
 
 // inits socket connection before clients main execution
 
- __attribute__((constructor)) void inicio(void)
- {
-     if (crear_conexion() < 0)
-     {
-         _exit(1);
-     }
- }
+//  __attribute__((constructor)) void inicio(void)
+//  {
+//      if (crear_conexion() < 0)
+//      {
+//          _exit(1);
+//      }
+//  }
 
 // Crea el tema especificado.
 // Devuelve 0 si OK y un valor negativo en caso de error.

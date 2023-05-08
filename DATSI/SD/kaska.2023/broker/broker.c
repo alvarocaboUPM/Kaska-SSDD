@@ -199,6 +199,7 @@ char *get_topic_name(int client_fd, int *err)
         return NULL;
     }
     size = ntohl(raw_size);
+    //printf("El nombre tiene tamaño: %d\n", size);
 
     if (size > STRING_MAX)
         size = STRING_MAX;
@@ -214,6 +215,7 @@ char *get_topic_name(int client_fd, int *err)
     }
     topic_name[size] = '\0';
     *err = 0;
+    //printf("El nombre es: %s\n", topic_name);
     return topic_name;
 }
 
@@ -228,7 +230,7 @@ void *service(void *arg)
     int code, response;
     thread_info *thinf = arg;
 
-    while (purge_socket(thinf->socket)==0)
+    while (1)
     {
         if(recv(thinf->socket, &code, sizeof(int), MSG_WAITALL) != sizeof(int)){
             break;
@@ -247,7 +249,8 @@ void *service(void *arg)
         // new_topic
         case 0:
             topic_name = get_topic_name(thinf->socket, &response);
-            if(response!=0) break;
+            if(response!=0) 
+            break;
             topic = new_topic(topic_name);
             response = map_put(table_topics, topic_name, topic);
             break;
@@ -326,7 +329,6 @@ void *service(void *arg)
             {
                 // depura el socket
                 purge_socket(thinf->socket);
-                //printf("Depurado-> %d\n",purge_socket(thinf->socket));
                 break;
             }
             
@@ -396,8 +398,6 @@ int main(int argc, char *argv[])
     {
         exit(EXIT_FAILURE);
     }
-    
-    printf("\nBROKER-> Servidor broker iniciado en fd-> %d\n", server_fd);
 
     while (1)
     {
@@ -409,13 +409,15 @@ int main(int argc, char *argv[])
             close(server_fd);
             return -1;
         }
-        printf("BROKER-> Aceptada conexión con FD-> %d\n", s_conec);
+        
         // crea el thread de service
+        //printf("BROKER-> Aceptada conexión con FD-> %d\n", s_conec);
         thread_info *thinf = malloc(sizeof(thread_info));
         thinf->socket = s_conec;
-        pthread_create(&thid, &atrib_th, service, thinf);
+        if(pthread_create(&thid, &atrib_th, service, thinf)<0)
+            perror("Error creating working thread");
     }
-    puts("Fin del broker");
+
     close(server_fd); // cierra el socket general
     return 0;
 }
