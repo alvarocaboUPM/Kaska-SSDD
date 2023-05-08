@@ -26,8 +26,7 @@
 //========GLOBAL VARIABLES & STRUCTS==========
 
 int server_fd;
-struct sockaddr_in dir;
-int opcion;
+
 
 // Data structures
 
@@ -67,7 +66,8 @@ typedef struct Message
  */
 static int init_socket_server(const char *port)
 {
-    opcion = 1;
+    struct sockaddr_in dir;
+    int opcion= 1;
     // socket stream para Internet: TCP
     if ((server_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
     {
@@ -183,15 +183,21 @@ void exit_handler()
  * @brief Get the topic name object
  *
  * @param client_fd
+ * @param err out param for error
  * @return char* topic_name
  */
-char *get_topic_name(int client_fd)
+char *get_topic_name(int client_fd, int *err)
 {
-    int raw_size, size;
+    int raw_size, size, bytes_received;
     char *topic_name;
 
     // 1. Get string size
-    recv(client_fd, &raw_size, sizeof(int), MSG_WAITALL);
+    bytes_received = recv(client_fd, &raw_size, sizeof(int), MSG_WAITALL);
+    if (bytes_received == -1) {
+        perror("Error receiving topic name size");
+        *err = -1;
+        return NULL;
+    }
     size = ntohl(raw_size);
 
     if (size > STRING_MAX)
@@ -199,10 +205,18 @@ char *get_topic_name(int client_fd)
 
     topic_name = malloc(size + 1);
     // 2. Get topic name
-    recv(client_fd, topic_name, size, MSG_WAITALL);
+    bytes_received = recv(client_fd, topic_name, size, MSG_WAITALL);
+    if (bytes_received == -1) {
+        perror("Error receiving topic name");
+        free(topic_name);
+        *err = -1;
+        return NULL;
+    }
     topic_name[size] = '\0';
+    *err = 0;
     return topic_name;
 }
+
 
 /**
  * @brief Server function
@@ -232,7 +246,8 @@ void *service(void *arg)
         {
         // new_topic
         case 0:
-            topic_name = get_topic_name(thinf->socket);
+            topic_name = get_topic_name(thinf->socket, &response);
+            if(response!=0) break;
             topic = new_topic(topic_name);
             response = map_put(table_topics, topic_name, topic);
             break;
@@ -242,7 +257,10 @@ void *service(void *arg)
             break;
         // send_msg
         case 2:
-            topic = (Topic *)map_get(table_topics, get_topic_name(thinf->socket), &response);
+            topic_name = get_topic_name(thinf->socket, &response);
+            if(response!=0) break;
+
+            topic = (Topic *)map_get(table_topics, topic_name, &response);
 
             if (response != 0)
             {
@@ -265,10 +283,9 @@ void *service(void *arg)
             break;
         // msg_length
         case 3:
-            ;
-            char* name = get_topic_name(thinf->socket);
-            topic = map_get(table_topics, name, &response);
-            free(name);
+            topic_name = get_topic_name(thinf->socket, &response);
+            if(response!=0) break;
+            topic = map_get(table_topics, topic_name, &response);
 
             if (response != 0)
             {
@@ -287,7 +304,10 @@ void *service(void *arg)
             break;
         // end_offset
         case 4:
-            topic = map_get(table_topics, get_topic_name(thinf->socket), &response);
+            topic_name = get_topic_name(thinf->socket, &response);
+            if(response!=0) break;
+
+            topic = map_get(table_topics, topic_name, &response);
             if (response != 0)
             {
                 // depura el socket
@@ -299,7 +319,9 @@ void *service(void *arg)
             break;
         // poll
         case 5:
-            topic = map_get(table_topics, get_topic_name(thinf->socket), &response);
+            topic_name = get_topic_name(thinf->socket, &response);
+            if(response!=0) break;
+            topic = map_get(table_topics, topic_name, &response);
             if (response != 0)
             {
                 // depura el socket
@@ -360,7 +382,7 @@ int main(int argc, char *argv[])
     // inicializa el socket y lo prepara para aceptar conexiones
     if ((server_fd = init_socket_server(argv[1])) < 0)
         return -1;
-
+    
     // prepara atributos adecuados para crear thread "detached"
     pthread_t thid;
     pthread_attr_t atrib_th;
@@ -374,6 +396,8 @@ int main(int argc, char *argv[])
     {
         exit(EXIT_FAILURE);
     }
+    
+    printf("\nBROKER-> Servidor broker iniciado en fd-> %d\n", server_fd);
 
     while (1)
     {
@@ -385,11 +409,13 @@ int main(int argc, char *argv[])
             close(server_fd);
             return -1;
         }
+        printf("BROKER-> Aceptada conexión con FD-> %d\n", s_conec);
         // crea el thread de service
         thread_info *thinf = malloc(sizeof(thread_info));
         thinf->socket = s_conec;
         pthread_create(&thid, &atrib_th, service, thinf);
     }
+    puts("Fin del broker");
     close(server_fd); // cierra el socket general
     return 0;
 }

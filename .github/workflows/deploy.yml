@@ -54,6 +54,7 @@ jobs:
         password: ${{ secrets.SERVER_PASSWORD }}
         port: ${{ secrets.SERVER_PORT }}
         script: |
+          cd ~/DATSI/SD/kaska.2023
           sh clean.sh
           cd broker
           make && echo Broker build successfully

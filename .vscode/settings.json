@@ -2,7 +2,8 @@
     "files.associations": {
         "*.embeddedhtml": "html",
         "*.pl": "ciao",
-        "signal.h": "c"
+        "signal.h": "c",
+        "typeinfo": "c"
     },
     "yaml.schemas": {
         "file:///home/ubuntu/.vscode-server/extensions/atlassian.atlascode-2.10.12/resources/schemas/pipelines-schema.json": "bitbucket-pipelines.yml",

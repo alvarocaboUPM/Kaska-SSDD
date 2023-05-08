@@ -14,10 +14,8 @@
 #include <sys/uio.h>
 #include <unistd.h>
 #include <stdbool.h>
-#define NUM_REQ 3
 
-int client_fd = -1;
-struct addrinfo *res;
+int client_fd=-1;
 
 //<TopicName,Offset>
 map *subbed_table;
@@ -30,6 +28,7 @@ typedef struct offset
 // inicializa el socket y se conecta al servidor
 static int init_socket_client()
 {
+    struct addrinfo *res;
     // socket stream para Internet: TCP
     if ((client_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
     {
@@ -37,7 +36,6 @@ static int init_socket_client()
         return -1;
     }
 
-    // printf("Socket iniciado con FD: %d\n", client_fd);
     char *HOST = getenv("BROKER_HOST");
     char *PORT = getenv("BROKER_PORT");
 
@@ -63,12 +61,12 @@ static int crear_conexion()
 {
     if (client_fd == -1)
     {
-        printf("Nueva conexión en cliente %d\n", init_socket_client());
-        if (client_fd < 0)
+        if ((client_fd = init_socket_client()) < 0)
         {
             perror("Error initializing socket client");
             return -1;
         }
+        printf("CLIENT-> Nueva conexión en FD-> %d\n", client_fd);
     }
     return 0;
 }
@@ -139,24 +137,21 @@ static void print_subbed_map()
     p = map_iter_exit(it);
 }
 
-//inits socket connection before clients main execution
-// __attribute__((constructor)) void inicio(void)
-// {
-//     if (crear_conexion() < 0)
-//     {
-//         _exit(1);
-//     }
-// }
+// inits socket connection before clients main execution
+
+ __attribute__((constructor)) void inicio(void)
+ {
+     if (crear_conexion() < 0)
+     {
+         _exit(1);
+     }
+ }
 
 // Crea el tema especificado.
 // Devuelve 0 si OK y un valor negativo en caso de error.
 int create_topic(char *topic)
 {
-    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
-
-        return -1;
-
-}
+    if(crear_conexion() <0) return -1;
     int op_code = htonl(0);
     struct iovec iov[3];
     // op code
@@ -185,11 +180,7 @@ int create_topic(char *topic)
 // en caso de error.
 int ntopics(void)
 {
-    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
-
-        return -1;
-
-}
+    if(crear_conexion() <0) return -1;
     int op_code = htonl(1);
     struct iovec iov[1];
 
@@ -217,11 +208,7 @@ int ntopics(void)
  */
 int send_msg(char *topic, int msg_size, void *msg)
 {
-    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
-
-        return -1;
-
-}
+    if(crear_conexion() <0) return -1;
     int op_code = htonl(2);
     struct iovec iov[5];
     // op code
@@ -257,11 +244,7 @@ int send_msg(char *topic, int msg_size, void *msg)
 // y un valor negativo en caso de error.
 int msg_length(char *topic, int offset)
 {
-    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
-
-        return -1;
-
-}
+    if(crear_conexion() <0) return -1;
     int op_code = htonl(3);
     struct iovec iov[4];
     // op code
@@ -296,11 +279,7 @@ int msg_length(char *topic, int offset)
 // Devuelve ese offset si OK y un valor negativo en caso de error.
 int end_offset(char *topic)
 {
-    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
-
-        return -1;
-
-}
+    if(crear_conexion() <0) return -1;
     int op_code = htonl(4);
     struct iovec iov[3];
     // op code
@@ -339,11 +318,7 @@ int end_offset(char *topic)
  */
 int subscribe(int ntopics, char **topics)
 {
-    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
-
-        return -1;
-
-}
+    if(crear_conexion() <0) return -1;
     if (subbed_table != NULL)
     {
         print_subbed_map();
@@ -380,11 +355,7 @@ int subscribe(int ntopics, char **topics)
 // Devuelve 0 si OK y un valor negativo si no había suscripciones activas.
 int unsubscribe(void)
 {
-    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
-
-        return -1;
-
-}
+    if(crear_conexion() <0) return -1;
     if (subbed_table == NULL)
         return -1;
     int size = map_size(subbed_table);
@@ -398,11 +369,7 @@ int unsubscribe(void)
 // caso de error.
 int position(char *topic)
 {
-    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
-
-        return -1;
-
-}
+    if(crear_conexion() <0) return -1;
     int res;
     Offset *r = map_get(subbed_table, topic, &res);
     if (res == 0)
@@ -417,11 +384,7 @@ int position(char *topic)
 // Devuelve 0 si OK y un número negativo en caso de error.
 int seek(char *topic, int offset)
 {
-    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
-
-        return -1;
-
-}
+    if(crear_conexion() <0) return -1;
     int res;
     Offset *r = map_get(subbed_table, topic, &res);
     if (res == 0)
@@ -440,11 +403,7 @@ int seek(char *topic, int offset)
 // y un número negativo en caso de error.
 int poll(char **topic, void **msg)
 {
-    if(client_fd == -1 && (client_fd = init_socket_client() ) < 0){
-
-        return -1;
-
-}
+    if(crear_conexion() <0) return -1;
     map_position *p = map_alloc_position(subbed_table);
     map_iter *it = map_iter_init(subbed_table, p);
     char *key;
