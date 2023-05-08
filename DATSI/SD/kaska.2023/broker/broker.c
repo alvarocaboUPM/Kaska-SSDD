@@ -332,8 +332,10 @@ void *service(void *arg)
             offset = ntohl(offset);
             //Busca el mensaje
             msg = queue_get(topic->messages, offset, &response);
-            if(response!=-1)
+            if(response!=-1){
+                response=msg->size;
                 onPolling=true;
+            }
             break;
         default:
             fprintf(stderr, "Operation not allowed with code %d\n", code);
@@ -341,7 +343,7 @@ void *service(void *arg)
         // envía un code como respuesta
         send(thinf->socket, &response, sizeof(response), 0);
         if(onPolling){
-            send(thinf->socket, msg, msg->size, 0);
+            send(thinf->socket, msg->body, msg->size, 0);
         }
     }
     close(thinf->socket);

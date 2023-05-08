@@ -119,8 +119,8 @@ static int map_polling(char *topic, Offset *off)
     }
     int response;
     recv(client_fd, &response, sizeof(response), 0);
-    
-    printf("RES -> %d", response);
+
+    // printf("RES -> %d\n", response);
     return response;
 }
 
@@ -383,8 +383,8 @@ int subscribe(int ntopics, char **topics)
     }
 
     // Debug
-    if(ntopics>0)
-    print_subbed_map();
+    if (ntopics > 0)
+        print_subbed_map();
 
     return subbed_topics;
 }
@@ -449,29 +449,33 @@ int poll(char **topic, void **msg)
 
     if (!subbed_table)
         return 0;
-    
-    if (p==NULL)
+
+    if (p == NULL)
         p = map_alloc_position(subbed_table);
 
     map_iter *it;
     char *key;
     Offset *o;
     int res;
-    
-    if((it=map_iter_init(subbed_table, p))==NULL){
+
+    if ((it = map_iter_init(subbed_table, p)) == NULL)
+    {
         perror("Invalid position for init");
         return -1;
     }
 
     for (res = 0; res <= 0 && it && map_iter_has_next(it); map_iter_next(it))
     {
-        if(map_iter_value(it, (const void **)&key, (void **)&o)<0){
+        if (map_iter_value(it, (const void **)&key, (void **)&o) < 0)
+        {
             perror("Error getting key-value");
         }
 
-        if ((res = map_polling(key, o)) >=0)
+        if ((res = map_polling(key, o)) >= 0)
         {
-            *topic = strdup(key);
+            printf("%s\n",strdup(key));
+            char* k= strdup(key);
+            *topic = k;
             receive_remaining_data(res, *msg);
             p = map_iter_exit(it);
             return res;
