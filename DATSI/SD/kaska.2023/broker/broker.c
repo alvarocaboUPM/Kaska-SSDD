@@ -22,7 +22,7 @@
 #include "queue.h"
 #include <stdbool.h>
 
-#define STRING_MAX ((1 << 16) - 2)
+
 //========GLOBAL VARIABLES & STRUCTS==========
 
 int server_fd;
@@ -53,8 +53,9 @@ typedef struct Message
     void *body;
     int size;
     char *topic_name;
-    int subbed_clients;
+
 } Message;
+
 
 //========STATIC FUNCTIONS==========
 
@@ -125,7 +126,6 @@ Message *new_msg(int size, char *topic_name)
 {
     Message *msg = malloc(sizeof(struct Message));
     msg->topic_name = topic_name;
-    msg->subbed_clients = 0;
     msg->body = malloc(size);
     msg->size = size;
     return msg;
@@ -229,7 +229,7 @@ void *service(void *arg)
 {
     int code, response;
     thread_info *thinf = arg;
-
+    bool onPolling=false;
     while (1)
     {
         if(recv(thinf->socket, &code, sizeof(int), MSG_WAITALL) != sizeof(int)){
@@ -262,9 +262,7 @@ void *service(void *arg)
         case 2:
             topic_name = get_topic_name(thinf->socket, &response);
             if(response!=0) break;
-
             topic = (Topic *)map_get(table_topics, topic_name, &response);
-
             if (response != 0)
             {
                 // depura el socket
@@ -289,7 +287,6 @@ void *service(void *arg)
             topic_name = get_topic_name(thinf->socket, &response);
             if(response!=0) break;
             topic = map_get(table_topics, topic_name, &response);
-
             if (response != 0)
             {
                 // depura el socket
@@ -309,7 +306,6 @@ void *service(void *arg)
         case 4:
             topic_name = get_topic_name(thinf->socket, &response);
             if(response!=0) break;
-
             topic = map_get(table_topics, topic_name, &response);
             if (response != 0)
             {
@@ -331,29 +327,22 @@ void *service(void *arg)
                 purge_socket(thinf->socket);
                 break;
             }
-            
+            //Offset
             recv(thinf->socket, &offset, sizeof(int), MSG_WAITALL);
             offset = ntohl(offset);
-
+            //Busca el mensaje
             msg = queue_get(topic->messages, offset, &response);
-            if (response == 0)
-                response = msg->size;
-            // free_msg(msg_l);
-            break;
-        // un-sub
-        case 6:
-            break;
-        // position
-        case 7:
-            break;
-        // seek
-        case 8:
+            if(response!=-1)
+                onPolling=true;
             break;
         default:
             fprintf(stderr, "Operation not allowed with code %d\n", code);
         }
         // envía un code como respuesta
         send(thinf->socket, &response, sizeof(response), 0);
+        if(onPolling){
+            send(thinf->socket, msg, msg->size, 0);
+        }
     }
     close(thinf->socket);
     return NULL;

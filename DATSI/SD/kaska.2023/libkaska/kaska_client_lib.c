@@ -15,10 +15,11 @@
 #include <unistd.h>
 #include <stdbool.h>
 
-int client_fd=-1;
+int client_fd = -1;
 
 //<TopicName,Offset>
-map *subbed_table;
+map *subbed_table = NULL;
+map_position *p = NULL;
 
 typedef struct offset
 {
@@ -66,7 +67,7 @@ static int crear_conexion()
             perror("Error initializing socket client");
             return -1;
         }
-        printf("CLIENT-> Nueva conexión en FD-> %d\n", client_fd);
+        // printf("CLIENT-> Nueva conexión en FD-> %d\n", client_fd);
     }
     return 0;
 }
@@ -84,7 +85,8 @@ static void free_entry(void *k, void *v)
 }
 
 /**
- * @brief Checks for offset diff with the server
+ * @brief Checks for message content
+ * @param off queue offset in the topic where trying to find a message
  *
  * @param m map
  * @return byte[] with the values
@@ -116,14 +118,42 @@ static int map_polling(char *topic, Offset *off)
         exit(EXIT_FAILURE);
     }
     int response;
-    recv(client_fd, &response, sizeof(response), MSG_WAITALL);
+    recv(client_fd, &response, sizeof(response), 0);
+    
+    printf("RES -> %d", response);
     return response;
 }
 
+static void receive_remaining_data(int response_size, void *msg)
+{
+    char *buffer = (char *)msg;
+    int total_received = 0;
+    int bytes_received;
+
+    // loop until all data is received
+    while (total_received < response_size)
+    {
+        bytes_received = recv(client_fd, buffer + total_received, response_size - total_received, 0);
+        if (bytes_received == -1)
+        {
+            perror("recv");
+            exit(1);
+        }
+        else if (bytes_received == 0)
+        {
+            printf("Connection closed by peer\n");
+            exit(1);
+        }
+        else
+        {
+            total_received += bytes_received;
+        }
+    }
+}
 static void print_subbed_map()
 {
-    map_position *p = map_alloc_position(subbed_table);
-    map_iter *it = map_iter_init(subbed_table, p);
+    map_position *p_aux = map_alloc_position(subbed_table);
+    map_iter *it = map_iter_init(subbed_table, p_aux);
     char *key;
     Offset *o;
     int i = 0;
@@ -134,7 +164,8 @@ static void print_subbed_map()
         map_iter_value(it, (const void **)&key, (void **)&o);
         printf("%d:después de subscribe: nombre %s offset %d\n", i++, key, o->o);
     }
-    p = map_iter_exit(it);
+    map_iter_exit(it);
+    map_free_position(p_aux);
 }
 
 // inits socket connection before clients main execution
@@ -151,7 +182,8 @@ static void print_subbed_map()
 // Devuelve 0 si OK y un valor negativo en caso de error.
 int create_topic(char *topic)
 {
-    if(crear_conexion() <0) return -1;
+    if (crear_conexion() < 0)
+        return -1;
     int op_code = htonl(0);
     struct iovec iov[3];
     // op code
@@ -180,7 +212,8 @@ int create_topic(char *topic)
 // en caso de error.
 int ntopics(void)
 {
-    if(crear_conexion() <0) return -1;
+    if (crear_conexion() < 0)
+        return -1;
     int op_code = htonl(1);
     struct iovec iov[1];
 
@@ -208,7 +241,8 @@ int ntopics(void)
  */
 int send_msg(char *topic, int msg_size, void *msg)
 {
-    if(crear_conexion() <0) return -1;
+    if (crear_conexion() < 0)
+        return -1;
     int op_code = htonl(2);
     struct iovec iov[5];
     // op code
@@ -244,7 +278,8 @@ int send_msg(char *topic, int msg_size, void *msg)
 // y un valor negativo en caso de error.
 int msg_length(char *topic, int offset)
 {
-    if(crear_conexion() <0) return -1;
+    if (crear_conexion() < 0)
+        return -1;
     int op_code = htonl(3);
     struct iovec iov[4];
     // op code
@@ -279,7 +314,8 @@ int msg_length(char *topic, int offset)
 // Devuelve ese offset si OK y un valor negativo en caso de error.
 int end_offset(char *topic)
 {
-    if(crear_conexion() <0) return -1;
+    if (crear_conexion() < 0)
+        return -1;
     int op_code = htonl(4);
     struct iovec iov[3];
     // op code
@@ -318,7 +354,8 @@ int end_offset(char *topic)
  */
 int subscribe(int ntopics, char **topics)
 {
-    if(crear_conexion() <0) return -1;
+    if (crear_conexion() < 0)
+        return -1;
     if (subbed_table != NULL)
     {
         print_subbed_map();
@@ -346,6 +383,7 @@ int subscribe(int ntopics, char **topics)
     }
 
     // Debug
+    if(ntopics>0)
     print_subbed_map();
 
     return subbed_topics;
@@ -355,7 +393,8 @@ int subscribe(int ntopics, char **topics)
 // Devuelve 0 si OK y un valor negativo si no había suscripciones activas.
 int unsubscribe(void)
 {
-    if(crear_conexion() <0) return -1;
+    if (crear_conexion() < 0)
+        return -1;
     if (subbed_table == NULL)
         return -1;
     int size = map_size(subbed_table);
@@ -369,7 +408,8 @@ int unsubscribe(void)
 // caso de error.
 int position(char *topic)
 {
-    if(crear_conexion() <0) return -1;
+    if (crear_conexion() < 0)
+        return -1;
     int res;
     Offset *r = map_get(subbed_table, topic, &res);
     if (res == 0)
@@ -384,7 +424,8 @@ int position(char *topic)
 // Devuelve 0 si OK y un número negativo en caso de error.
 int seek(char *topic, int offset)
 {
-    if(crear_conexion() <0) return -1;
+    if (crear_conexion() < 0)
+        return -1;
     int res;
     Offset *r = map_get(subbed_table, topic, &res);
     if (res == 0)
@@ -403,21 +444,40 @@ int seek(char *topic, int offset)
 // y un número negativo en caso de error.
 int poll(char **topic, void **msg)
 {
-    if(crear_conexion() <0) return -1;
-    map_position *p = map_alloc_position(subbed_table);
-    map_iter *it = map_iter_init(subbed_table, p);
+    if (crear_conexion() < 0)
+        return -1;
+
+    if (!subbed_table)
+        return 0;
+    
+    if (p==NULL)
+        p = map_alloc_position(subbed_table);
+
+    map_iter *it;
     char *key;
     Offset *o;
-    bool found;
+    int res;
+    
+    if((it=map_iter_init(subbed_table, p))==NULL){
+        perror("Invalid position for init");
+        return -1;
+    }
 
-    for (found = false; found != true && it && map_iter_has_next(it); map_iter_next(it))
+    for (res = 0; res <= 0 && it && map_iter_has_next(it); map_iter_next(it))
     {
-        map_iter_value(it, (const void **)&key, (void **)&o);
-        if (msg_length(key, o->o) > 0)
-            ;
+        if(map_iter_value(it, (const void **)&key, (void **)&o)<0){
+            perror("Error getting key-value");
+        }
+
+        if ((res = map_polling(key, o)) >=0)
+        {
+            *topic = strdup(key);
+            receive_remaining_data(res, *msg);
+            p = map_iter_exit(it);
+            return res;
+        };
     }
     return 0;
-    // return map_iter_exit(it);
 }
 
 // QUINTA FASE: COMMIT OFFSETS
@@ -426,6 +486,8 @@ int poll(char **topic, void **msg)
 // Devuelve 0 si OK y un número negativo en caso de error.
 int commit(char *client, char *topic, int offset)
 {
+    if (crear_conexion() < 0)
+        return -1;
     return 0;
 }
 
@@ -433,5 +495,7 @@ int commit(char *client, char *topic, int offset)
 // Devuelve el offset y un número negativo en caso de error.
 int commited(char *client, char *topic)
 {
+    if (crear_conexion() < 0)
+        return -1;
     return 0;
 }
