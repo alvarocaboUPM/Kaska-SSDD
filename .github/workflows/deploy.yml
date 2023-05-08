@@ -32,11 +32,11 @@ jobs:
           # Set proxy
           git config --global http.proxy http://proxy.fi.upm.es:8080
           git config --global https.proxy http://proxy.fi.upm.es:8080
-          git config pull.rebase false
           
           # Check if Kaska-SSDD directory exists
           if [ -d "Kaska-SSDD" ]; then
             # Kaska-SSDD directory exists, do a git pull
+            git config pull.rebase false
             cd Kaska-SSDD
             git pull
             cp -r DATSI/ ..
@@ -57,7 +57,7 @@ jobs:
           cd ~/DATSI/SD/kaska.2023
           sh clean.sh
           cd broker
-          make && echo Broker build successfully
+          make && echo Broker build successfully!!
           cd ../clients
           make && echo Client build successfully!!
           cd ..
