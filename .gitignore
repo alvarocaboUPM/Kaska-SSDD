@@ -3,6 +3,8 @@ DATSI/SD/kaska.2023/ejemplo_sockets
 DATSI/SD/kaska.2023/clients/test
 DATSI/SD/kaska.2023/broker/broker
 
+DATSI/SD/kaska.2023/util/demo
+
 *.log
 
 # Prerequisites
