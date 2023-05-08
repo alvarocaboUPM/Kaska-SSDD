@@ -28,7 +28,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Run broker in the background and redirect output to a log file
-strace -f -o traza ./broker $BROKER_PORT &
+strace -f -o broker.log ./broker $BROKER_PORT &
 
 cd ../clients
 make
@@ -36,7 +36,7 @@ make
 # Check if make command was successful
 if [ $? -eq 0 ]; then
   #gdb -x ./test 
-  strace -f -o traza ./test
+  strace -f -o client.log ./test
   #valgrind -s ./test
 else
   echo "Make command for CLIENT failed with exit code $?"
