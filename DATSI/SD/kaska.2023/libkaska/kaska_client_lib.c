@@ -116,7 +116,6 @@ static int map_polling(char *topic, Offset *off)
     }
     int response;
     recv(client_fd, &response, sizeof(response), 0);
-
     return response;
 }
 
@@ -169,18 +168,7 @@ static void print_subbed_map()
     map_free_position(p_aux);
 }
 
-// inits socket connection before clients main execution
 
-//  __attribute__((constructor)) void inicio(void)
-//  {
-//      if (crear_conexion() < 0)
-//      {
-//          _exit(1);
-//      }
-//  }
-
-// Crea el tema especificado.
-// Devuelve 0 si OK y un valor negativo en caso de error.
 int create_topic(char *topic)
 {
     if (crear_conexion() < 0)
@@ -209,8 +197,7 @@ int create_topic(char *topic)
     recv(client_fd, &response, sizeof(response), MSG_WAITALL);
     return response;
 }
-// Devuelve cuántos temas existen en el sistema y un valor negativo
-// en caso de error.
+
 int ntopics(void)
 {
     if (crear_conexion() < 0)
@@ -234,12 +221,7 @@ int ntopics(void)
     return response;
 }
 
-// SEGUNDA FASE: PRODUCIR/PUBLICAR
 
-/** Envía el mensaje al tema especificado; nótese la necesidad
- de indicar el tamaño ya que puede tener un contenido de tipo binario.
- Devuelve el offset si OK y un valor negativo en caso de error.
- */
 int send_msg(char *topic, int msg_size, void *msg)
 {
     if (crear_conexion() < 0)
@@ -275,8 +257,8 @@ int send_msg(char *topic, int msg_size, void *msg)
     recv(client_fd, &response, sizeof(response), MSG_WAITALL);
     return response;
 }
-// Devuelve la longitud del mensaje almacenado en ese offset del tema indicado
-// y un valor negativo en caso de error.
+
+
 int msg_length(char *topic, int offset)
 {
     if (crear_conexion() < 0)
@@ -309,10 +291,8 @@ int msg_length(char *topic, int offset)
     recv(client_fd, &response, sizeof(response), MSG_WAITALL);
     return response;
 }
-// Obtiene el último offset asociado a un tema en el broker, que corresponde
-// al del último mensaje enviado más uno y, dado que los mensajes se
-// numeran declient_fde 0, coincide con el número de mensajes asociados a ese tema.
-// Devuelve ese offset si OK y un valor negativo en caso de error.
+
+
 int end_offset(char *topic)
 {
     if (crear_conexion() < 0)
@@ -364,6 +344,8 @@ int subscribe(int ntopics, char **topics)
     }
 
     int subbed_topics = 0;
+    if(ntopics<1) return subbed_topics;
+    
     subbed_table = map_create(key_string, 0);
 
     for (int i = 0; i < ntopics; i++)
@@ -390,8 +372,7 @@ int subscribe(int ntopics, char **topics)
     return subbed_topics;
 }
 
-// Se da de baja de todos los temas suscritos.
-// Devuelve 0 si OK y un valor negativo si no había suscripciones activas.
+
 int unsubscribe(void)
 {
     if (crear_conexion() < 0)
@@ -405,8 +386,6 @@ int unsubscribe(void)
     return 0;
 }
 
-// Devuelve el offset del cliente para ese tema y un número negativo en
-// caso de error.
 int position(char *topic)
 {
     if (crear_conexion() < 0)
@@ -421,8 +400,7 @@ int position(char *topic)
     return res;
 }
 
-// Modifica el offset del cliente para ese tema.
-// Devuelve 0 si OK y un número negativo en caso de error.
+
 int seek(char *topic, int offset)
 {
     if (crear_conexion() < 0)
@@ -437,12 +415,6 @@ int seek(char *topic, int offset)
     return res;
 }
 
-// CUARTA FASE: LEER MENSAJES
-
-// Obtiene el siguiente mensaje destinado a este cliente; los dos parámetros
-// son de salida.
-// Devuelve el tamaño del mensaje (0 si no había mensaje)
-// y un número negativo en caso de error.
 int poll(char **topic, void **msg)
 {
     if (crear_conexion() < 0)

@@ -336,11 +336,21 @@ void *service(void *arg)
             fprintf(stderr, "Operation not allowed with code %d\n", code);
         }
         // envía un code como respuesta
-        send(thinf->socket, &response, sizeof(response), 0);
         if (onPolling)
         {
-            send(thinf->socket, msg->body, msg->size, 0);
+            onPolling=false;
+            int s= sizeof(int) + msg->size;
+
+            void *meta_msg = malloc(s);
+            memcpy(meta_msg, &response, sizeof(int));
+
+            char *original_bytes = (char *)msg->body;
+            memcpy(meta_msg + sizeof(int), original_bytes, msg->size);
+
+            send(thinf->socket,meta_msg, s, 0);
         }
+        else
+            send(thinf->socket, &response, sizeof(response), 0);
     }
     close(thinf->socket);
     return NULL;
