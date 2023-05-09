@@ -1,7 +1,7 @@
 /*========================================================
  * 			   BROKER.c by Álvaro Cabo
- *			  	    Versión 0.3
- *			  	     20/04/2023
+ *			  	    Versión 0.4
+ *			  	     9/05/2023
  * ========================================================
  */
 
@@ -339,7 +339,6 @@ void *service(void *arg)
         send(thinf->socket, &response, sizeof(response), 0);
         if (onPolling)
         {
-            onPolling=false;
             send(thinf->socket, msg->body, msg->size, 0);
         }
     }
