@@ -339,6 +339,7 @@ void *service(void *arg)
         send(thinf->socket, &response, sizeof(response), 0);
         if (onPolling)
         {
+            onPolling=false;
             send(thinf->socket, msg->body, msg->size, 0);
         }
     }

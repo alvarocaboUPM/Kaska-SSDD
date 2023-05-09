@@ -5,6 +5,8 @@ the real-time service architecture
 
 ## Run-up
 
+A script has been implemented that handles the full run-up process: `init.sh`, but you can run this process manually as follows:
+
 1. Export the broker address `host:port` as env variables
 
     ```bash
@@ -56,3 +58,14 @@ the real-time service architecture
   - `unsubscribe`
   - `position`
   - `seek`
+  
+### v0.4
+
+- Client implementations:
+  - `poll`
+
+### v1.0
+
+- Client implementations:
+  - `commit`
+  - `committed`
