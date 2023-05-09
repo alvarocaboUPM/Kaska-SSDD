@@ -22,11 +22,9 @@
 #include "queue.h"
 #include <stdbool.h>
 
-
 //========GLOBAL VARIABLES & STRUCTS==========
 
 int server_fd;
-
 
 // Data structures
 
@@ -56,7 +54,6 @@ typedef struct Message
 
 } Message;
 
-
 //========STATIC FUNCTIONS==========
 
 /**
@@ -68,7 +65,7 @@ typedef struct Message
 static int init_socket_server(const char *port)
 {
     struct sockaddr_in dir;
-    int opcion= 1;
+    int opcion = 1;
     // socket stream para Internet: TCP
     if ((server_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
     {
@@ -156,7 +153,7 @@ void print_msg(void *ev)
 /**
  * @brief reads and discards the remaining information passed
  * in case of error
- * @param socket 
+ * @param socket
  */
 int purge_socket(int socket)
 {
@@ -165,7 +162,8 @@ int purge_socket(int socket)
     int total_bytes_read = 0;
 
     // Keep reading and discarding data until there is no more data left to read
-    while ((bytes_read = recv(socket, buffer, sizeof(buffer), MSG_DONTWAIT)) > 0) {
+    while ((bytes_read = recv(socket, buffer, sizeof(buffer), MSG_DONTWAIT)) > 0)
+    {
         total_bytes_read += bytes_read;
     }
 
@@ -186,13 +184,14 @@ char *get_topic_name(int client_fd, int *err)
 
     // 1. Get string size
     bytes_received = recv(client_fd, &raw_size, sizeof(int), MSG_WAITALL);
-    if (bytes_received == -1) {
+    if (bytes_received == -1)
+    {
         perror("Error receiving topic name size");
         *err = -1;
         return NULL;
     }
     size = ntohl(raw_size);
-    //printf("El nombre tiene tamaño: %d\n", size);
+    // printf("El nombre tiene tamaño: %d\n", size);
 
     if (size > STRING_MAX)
         size = STRING_MAX;
@@ -200,7 +199,8 @@ char *get_topic_name(int client_fd, int *err)
     topic_name = malloc(size + 1);
     // 2. Get topic name
     bytes_received = recv(client_fd, topic_name, size, MSG_WAITALL);
-    if (bytes_received == -1) {
+    if (bytes_received == -1)
+    {
         perror("Error receiving topic name");
         free(topic_name);
         *err = -1;
@@ -208,10 +208,9 @@ char *get_topic_name(int client_fd, int *err)
     }
     topic_name[size] = '\0';
     *err = 0;
-    //printf("El nombre es: %s\n", topic_name);
+    // printf("El nombre es: %s\n", topic_name);
     return topic_name;
 }
-
 
 /**
  * @brief Server function
@@ -222,28 +221,29 @@ void *service(void *arg)
 {
     int code, response;
     thread_info *thinf = arg;
-    bool onPolling=false;
+    bool onPolling = false;
     while (1)
     {
-        if(recv(thinf->socket, &code, sizeof(int), MSG_WAITALL) != sizeof(int)){
+        if (recv(thinf->socket, &code, sizeof(int), MSG_WAITALL) != sizeof(int))
+        {
             break;
         }
         // Parsing the request
         code = ntohl(code);
-        //printf("Code: %d\n", code);
+        // printf("Code: %d\n", code);
 
         Topic *topic;
         int offset;
         Message *msg;
-        char* topic_name;
+        char *topic_name;
 
         switch (code)
         {
         // new_topic
         case 0:
             topic_name = get_topic_name(thinf->socket, &response);
-            if(response!=0) 
-            break;
+            if (response != 0)
+                break;
             topic = new_topic(topic_name);
             response = map_put(table_topics, topic_name, topic);
             break;
@@ -254,16 +254,15 @@ void *service(void *arg)
         // send_msg
         case 2:
             topic_name = get_topic_name(thinf->socket, &response);
-            if(response!=0) break;
+            if (response != 0)
+                break;
             topic = (Topic *)map_get(table_topics, topic_name, &response);
             if (response != 0)
             {
                 // depura el socket
                 purge_socket(thinf->socket);
-                //printf("Depurado-> %d\n",purge_socket(thinf->socket));
                 break;
             }
-
             int size;
             recv(thinf->socket, &size, sizeof(int), MSG_WAITALL);
             size = ntohl(size);
@@ -278,13 +277,13 @@ void *service(void *arg)
         // msg_length
         case 3:
             topic_name = get_topic_name(thinf->socket, &response);
-            if(response!=0) break;
+            if (response != 0)
+                break;
             topic = map_get(table_topics, topic_name, &response);
             if (response != 0)
             {
                 // depura el socket
                 purge_socket(thinf->socket);
-                //printf("Depurado-> %d\n",purge_socket(thinf->socket));
                 break;
             }
             recv(thinf->socket, &offset, sizeof(int), MSG_WAITALL);
@@ -293,26 +292,28 @@ void *service(void *arg)
             msg = queue_get(topic->messages, offset, &response);
             if (response == 0)
                 response = msg->size;
-            response=0;
+            else
+                response = 0;
             break;
         // end_offset
         case 4:
             topic_name = get_topic_name(thinf->socket, &response);
-            if(response!=0) break;
+            if (response != 0)
+                break;
             topic = map_get(table_topics, topic_name, &response);
             if (response != 0)
             {
                 // depura el socket
                 purge_socket(thinf->socket);
-                //printf("Depurado-> %d\n",purge_socket(thinf->socket));
                 break;
             }
-            response=topic->offset;
+            response = topic->offset;
             break;
         // poll
         case 5:
             topic_name = get_topic_name(thinf->socket, &response);
-            if(response!=0) break;
+            if (response != 0)
+                break;
             topic = map_get(table_topics, topic_name, &response);
             if (response != 0)
             {
@@ -320,14 +321,15 @@ void *service(void *arg)
                 purge_socket(thinf->socket);
                 break;
             }
-            //Offset
+            // Offset
             recv(thinf->socket, &offset, sizeof(int), MSG_WAITALL);
             offset = ntohl(offset);
-            //Busca el mensaje
+            // Busca el mensaje
             msg = queue_get(topic->messages, offset, &response);
-            if(response!=-1){
-                response=msg->size;
-                onPolling=true;
+            if (response != -1)
+            {
+                response = msg->size;
+                onPolling = true;
             }
             break;
         default:
@@ -335,7 +337,8 @@ void *service(void *arg)
         }
         // envía un code como respuesta
         send(thinf->socket, &response, sizeof(response), 0);
-        if(onPolling){
+        if (onPolling)
+        {
             send(thinf->socket, msg->body, msg->size, 0);
         }
     }
@@ -356,14 +359,15 @@ int main(int argc, char *argv[])
     unsigned int tam_dir;
     struct sockaddr_in dir_cliente;
 
-    if (argc!=2 && argc!=3) {
+    if (argc != 2 && argc != 3)
+    {
         fprintf(stderr, "Uso: %s puerto [dir_commited]\n", argv[0]);
         return 1;
     }
     // inicializa el socket y lo prepara para aceptar conexiones
     if ((server_fd = init_socket_server(argv[1])) < 0)
         return -1;
-    
+
     // prepara atributos adecuados para crear thread "detached"
     pthread_t thid;
     pthread_attr_t atrib_th;
@@ -388,12 +392,12 @@ int main(int argc, char *argv[])
             close(server_fd);
             return -1;
         }
-        
+
         // crea el thread de service
-        //printf("BROKER-> Aceptada conexión con FD-> %d\n", s_conec);
+        // printf("BROKER-> Aceptada conexión con FD-> %d\n", s_conec);
         thread_info *thinf = malloc(sizeof(thread_info));
         thinf->socket = s_conec;
-        if(pthread_create(&thid, &atrib_th, service, thinf)<0)
+        if (pthread_create(&thid, &atrib_th, service, thinf) < 0)
             perror("Error creating working thread");
     }
 
