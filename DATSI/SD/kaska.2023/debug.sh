@@ -1,7 +1,11 @@
 #!/usr/bin/bash
 
 export BROKER_PORT=12345
-export BROKER_HOST=localhost
+if [ "$(whoami)" = "c200172" ]; then
+  export BROKER_HOST="triqui.fi.upm.es"
+else
+  export BROKER_HOST="localhost"
+fi
 
 # Check if port is already in use
 ps -le | grep broker > /dev/null

@@ -172,13 +172,6 @@ int purge_socket(int socket)
     return total_bytes_read;
 }
 
-void exit_handler()
-{
-    close(server_fd);
-    puts("\n\n\tCLOSING BROKER\n\n");
-    exit(0);
-}
-
 /**
  * @brief Get the topic name object
  *
@@ -300,7 +293,7 @@ void *service(void *arg)
             msg = queue_get(topic->messages, offset, &response);
             if (response == 0)
                 response = msg->size;
-            // free_msg(msg_l);
+            response=0;
             break;
         // end_offset
         case 4:
@@ -363,14 +356,9 @@ int main(int argc, char *argv[])
     unsigned int tam_dir;
     struct sockaddr_in dir_cliente;
 
-    if (signal(SIGINT, &exit_handler) == SIG_ERR)
-    {
-        exit(EXIT_FAILURE);
-    }
-    if (argc != 2)
-    {
-        fprintf(stderr, "Uso: %s puerto\n", argv[0]);
-        return -1;
+    if (argc!=2 && argc!=3) {
+        fprintf(stderr, "Uso: %s puerto [dir_commited]\n", argv[0]);
+        return 1;
     }
     // inicializa el socket y lo prepara para aceptar conexiones
     if ((server_fd = init_socket_server(argv[1])) < 0)
