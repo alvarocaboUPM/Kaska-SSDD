@@ -485,6 +485,7 @@ int poll(char **topic, void **msg)
                 p = map_iter_exit(it);
                 *topic = tmp_topic;
                 *msg = tmp_msg;
+                o->o++;
                 return res;
             }
             else
