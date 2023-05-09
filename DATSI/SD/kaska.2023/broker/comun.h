@@ -7,6 +7,7 @@
 #define _COMUN_H        1
 
 #define STRING_MAX ((1 << 16) - 2)
+#define MAX_PATH_LEN 256
 
 
 #endif // _COMUN_H

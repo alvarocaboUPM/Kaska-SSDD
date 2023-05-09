@@ -8,6 +8,7 @@
 //=========INCLUDES=========
 
 #include <stdio.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -25,6 +26,7 @@
 //========GLOBAL VARIABLES & STRUCTS==========
 
 int server_fd;
+char *dir_name;
 
 // Data structures
 
@@ -146,6 +148,19 @@ void print_msg(void *ev)
             msg->body);
 }
 
+void getPath()
+{
+    char path[FILENAME_MAX];
+    if (getcwd(path, sizeof(path)) != NULL)
+    {
+        printf("Current working directory: %s\n", path);
+    }
+    else
+    {
+        perror("getcwd() error");
+    }
+}
+
 /*
         SERVER FUNCTIONS
 */
@@ -222,6 +237,9 @@ void *service(void *arg)
     int code, response;
     thread_info *thinf = arg;
     bool onPolling = false;
+    
+    char client_dir[MAX_PATH_LEN];
+
     while (1)
     {
         if (recv(thinf->socket, &code, sizeof(int), MSG_WAITALL) != sizeof(int))
@@ -332,14 +350,62 @@ void *service(void *arg)
                 onPolling = true;
             }
             break;
+        // commit
+        case 6:
+            // El control de argv!=null ya lo hace test
+            topic_name = get_topic_name(thinf->socket, &response);
+            if (response != 0)
+                break;
+            topic = map_get(table_topics, topic_name, &response);
+            if (response != 0)
+            {
+                // depura el socket
+                purge_socket(thinf->socket);
+                break;
+            }
+            // UID
+            char *UID = get_topic_name(thinf->socket, &response);
+            if (response != 0)
+                break;
+            // offset
+            recv(thinf->socket, &offset, sizeof(int), MSG_WAITALL);
+            offset = ntohl(offset);
+
+            // Subdirectorio
+            if (!client_dir)
+            {
+                snprintf(client_dir, MAX_PATH_LEN, "%s/%s", dir_name, UID);
+                if ((response = mkdir(client_dir, 0777)) == -1)
+                {
+                    perror("Failed to create client directory");
+                    break;
+                }
+            }
+
+            // Offset_file
+            char offset_file[MAX_PATH_LEN];
+            snprintf(offset_file, MAX_PATH_LEN, "%s/%s", client_dir, topic->name);
+
+            FILE *offset_fp = fopen(offset_file, "w");
+            if (!offset_fp)
+            {
+                perror("Failed to create offset file");
+                response = -1;
+                break;
+            }
+
+            fprintf(offset_fp, "%d", offset);
+            fclose(offset_fp);
+            
+            break;
         default:
             fprintf(stderr, "Operation not allowed with code %d\n", code);
         }
         // envía un code como respuesta
         if (onPolling)
         {
-            onPolling=false;
-            int s= sizeof(int) + msg->size;
+            onPolling = false;
+            int s = sizeof(int) + msg->size;
 
             void *meta_msg = malloc(s);
             memcpy(meta_msg, &response, sizeof(int));
@@ -347,7 +413,7 @@ void *service(void *arg)
             char *original_bytes = (char *)msg->body;
             memcpy(meta_msg + sizeof(int), original_bytes, msg->size);
 
-            send(thinf->socket,meta_msg, s, 0);
+            send(thinf->socket, meta_msg, s, 0);
         }
         else
             send(thinf->socket, &response, sizeof(response), 0);
@@ -369,10 +435,17 @@ int main(int argc, char *argv[])
     unsigned int tam_dir;
     struct sockaddr_in dir_cliente;
 
-    if (argc != 2 && argc != 3)
+    if (argc != 2)
     {
-        fprintf(stderr, "Uso: %s puerto [dir_commited]\n", argv[0]);
-        return 1;
+        if (argc != 3)
+        {
+            fprintf(stderr, "Uso: %s puerto [dir_commited]\n", argv[0]);
+            return 1;
+        }
+        else
+        {
+            dir_name = argv[2];
+        }
     }
     // inicializa el socket y lo prepara para aceptar conexiones
     if ((server_fd = init_socket_server(argv[1])) < 0)

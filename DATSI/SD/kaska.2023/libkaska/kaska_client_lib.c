@@ -168,7 +168,6 @@ static void print_subbed_map()
     map_free_position(p_aux);
 }
 
-
 int create_topic(char *topic)
 {
     if (crear_conexion() < 0)
@@ -221,7 +220,6 @@ int ntopics(void)
     return response;
 }
 
-
 int send_msg(char *topic, int msg_size, void *msg)
 {
     if (crear_conexion() < 0)
@@ -258,7 +256,6 @@ int send_msg(char *topic, int msg_size, void *msg)
     return response;
 }
 
-
 int msg_length(char *topic, int offset)
 {
     if (crear_conexion() < 0)
@@ -291,7 +288,6 @@ int msg_length(char *topic, int offset)
     recv(client_fd, &response, sizeof(response), MSG_WAITALL);
     return response;
 }
-
 
 int end_offset(char *topic)
 {
@@ -344,8 +340,9 @@ int subscribe(int ntopics, char **topics)
     }
 
     int subbed_topics = 0;
-    if(ntopics<1) return subbed_topics;
-    
+    if (ntopics < 1)
+        return subbed_topics;
+
     subbed_table = map_create(key_string, 0);
 
     for (int i = 0; i < ntopics; i++)
@@ -371,15 +368,11 @@ int subscribe(int ntopics, char **topics)
     return subbed_topics;
 }
 
-
 int unsubscribe(void)
 {
     if (crear_conexion() < 0)
         return -1;
-    if (subbed_table == NULL)
-        return -1;
-    int size = map_size(subbed_table);
-    if (map_destroy(subbed_table, free_entry) < 0 || size == 0)
+    if (subbed_table == NULL || map_size(subbed_table) ==0 || map_destroy(subbed_table, free_entry) < 0)
         return -1;
     subbed_table = NULL;
     return 0;
@@ -398,7 +391,6 @@ int position(char *topic)
 
     return res;
 }
-
 
 int seek(char *topic, int offset)
 {
@@ -434,7 +426,7 @@ int poll(char **topic, void **msg)
 
     if ((it = map_iter_init(subbed_table, p)) == NULL)
     {
-        fprintf(stderr,"Invalid position for init");
+        fprintf(stderr, "Invalid position for init");
         return -1;
     }
 
@@ -482,7 +474,42 @@ int commit(char *client, char *topic, int offset)
 {
     if (crear_conexion() < 0)
         return -1;
-    return 0;
+
+    int op_code = htonl(6);
+    struct iovec iov[6];
+    // op code
+    iov[0].iov_base = &op_code;
+    iov[0].iov_len = sizeof(op_code);
+    // size of topic name
+    int topic_len = strlen(topic);
+    int arg_size = htonl(topic_len);
+    iov[1].iov_base = &arg_size;
+    iov[1].iov_len = sizeof(arg_size);
+    // topic name
+    iov[2].iov_base = topic;
+    iov[2].iov_len = topic_len;
+    // size of UID
+    int client_len = strlen(client);
+    int arg_size_2 = htonl(client_len);
+    iov[3].iov_base = &arg_size_2;
+    iov[3].iov_len = sizeof(arg_size_2);
+    // UID
+    iov[4].iov_base = client;
+    iov[4].iov_len = client_len;
+    // offset
+    int offset_nl = htonl(offset);
+    iov[5].iov_base = &offset_nl;
+    iov[5].iov_len = sizeof(offset_nl);
+
+    if (writev(client_fd, iov, 6) < 0)
+    {
+        perror("error getting msg length");
+        close(client_fd);
+        exit(EXIT_FAILURE);
+    }
+    int response;
+    recv(client_fd, &response, sizeof(response), MSG_WAITALL);
+    return response;
 }
 
 // Cliente obtiene el offset guardado para ese tema.

@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 export BROKER_PORT=12345
-export FOLDER_NAME=offset
+export FOLDER_NAME=offsets
 
 if [ "$(whoami)" = "c200172" ]; then
   export BROKER_HOST="triqui.fi.upm.es"
@@ -46,13 +46,13 @@ make
 if [ $? -eq 0 ]; then
   uid="$(dbus-uuidgen)"
   if [ "$1" = "-g" ]; then
-    gdb -x ./test uid
+    gdb -x ./test $uid
   elif [ "$1" = "-s" ]; then
-    strace -f -o client.log ./test uid
+    strace -f -o client.log ./test $uid
   elif [ "$1" = "-v" ]; then
-    valgrind -s ./test uid
+    valgrind -s ./test $uid
   elif [ $# -eq 0 ]; then
-    ./test uid
+    ./test $uid
   else
     echo "Invalid parameter. Usage: $0 [-gdb|-s|-v]"
     exit 1
