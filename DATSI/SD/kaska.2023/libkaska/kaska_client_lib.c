@@ -366,8 +366,7 @@ int subscribe(int ntopics, char **topics)
     }
 
     // Debug
-    if (ntopics > 0)
-        print_subbed_map();
+    print_subbed_map();
 
     return subbed_topics;
 }
