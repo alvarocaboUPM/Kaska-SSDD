@@ -117,7 +117,6 @@ static int map_polling(char *topic, Offset *off)
     int response;
     recv(client_fd, &response, sizeof(response), 0);
 
-    // printf("RES -> %d\n", response);
     return response;
 }
 
@@ -464,7 +463,7 @@ int poll(char **topic, void **msg)
 
     if ((it = map_iter_init(subbed_table, p)) == NULL)
     {
-        perror("Invalid position for init");
+        fprintf(stderr,"Invalid position for init");
         return -1;
     }
 
@@ -482,6 +481,7 @@ int poll(char **topic, void **msg)
             if (tmp_msg != NULL)
             {
                 receive_remaining_data(res, tmp_msg);
+                map_iter_next(it);
                 p = map_iter_exit(it);
                 *topic = tmp_topic;
                 *msg = tmp_msg;
@@ -490,6 +490,7 @@ int poll(char **topic, void **msg)
             }
             else
             {
+                map_iter_next(it);
                 p = map_iter_exit(it);
                 free(tmp_topic);
                 return -1;
