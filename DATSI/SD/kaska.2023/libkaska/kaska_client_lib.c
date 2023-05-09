@@ -60,15 +60,12 @@ static int init_socket_client()
 
 static int crear_conexion()
 {
-    if (client_fd == -1)
+    if (client_fd == -1 && (client_fd = init_socket_client()) < 0)
     {
-        if ((client_fd = init_socket_client()) < 0)
-        {
-            perror("Error initializing socket client");
-            return -1;
-        }
-        // printf("CLIENT-> Nueva conexión en FD-> %d\n", client_fd);
+        perror("Error initializing socket client");
+        return -1;
     }
+    // printf("CLIENT-> Nueva conexión en FD-> %d\n", client_fd);
     return 0;
 }
 
@@ -147,6 +144,11 @@ static void receive_remaining_data(int response_size, void *msg)
         else
         {
             total_received += bytes_received;
+            // printf("Recibido -> [ ");
+            // for(int i=0; i<total_received; i++){
+            //     printf("%c, ", buffer[i]);
+            // }
+            // puts("]");
         }
     }
 }
@@ -457,6 +459,8 @@ int poll(char **topic, void **msg)
     char *key;
     Offset *o;
     int res;
+    char *tmp_topic = NULL;
+    void *tmp_msg = NULL;
 
     if ((it = map_iter_init(subbed_table, p)) == NULL)
     {
@@ -473,14 +477,27 @@ int poll(char **topic, void **msg)
 
         if ((res = map_polling(key, o)) >= 0)
         {
-            printf("%s\n",strdup(key));
-            char* k= strdup(key);
-            *topic = k;
-            receive_remaining_data(res, *msg);
-            p = map_iter_exit(it);
-            return res;
-        };
+            tmp_topic = strdup(key);
+            tmp_msg = malloc(res);
+            if (tmp_msg != NULL)
+            {
+                receive_remaining_data(res, tmp_msg);
+                p = map_iter_exit(it);
+                *topic = tmp_topic;
+                *msg = tmp_msg;
+                return res;
+            }
+            else
+            {
+                p = map_iter_exit(it);
+                free(tmp_topic);
+                return -1;
+            }
+        }
     }
+
+    free(tmp_topic);
+    free(tmp_msg);
     return 0;
 }
 
