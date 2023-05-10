@@ -374,12 +374,9 @@ void *service(void *arg)
             offset = ntohl(offset);
 
             // Subdirectorio
-            if (client_dir[0] == '\0')
-            {
-                snprintf(client_dir, MAX_PATH_LEN, "%s/%s", dir_name, UID);
-                if (mkdir(client_dir, 0777) == -1)
-                    perror("Failed to create client directory");
-            }
+            snprintf(client_dir, MAX_PATH_LEN, "%s/%s", dir_name, UID);
+            if (mkdir(client_dir, 0777) == -1)
+                perror("Failed to create client directory");
 
             // Offset_file
             char offset_file[MAX_PATH_LEN];
@@ -413,8 +410,7 @@ void *service(void *arg)
             if (response != 0)
                 break;
 
-            if (client_dir[0] == '\0')
-                snprintf(client_dir, MAX_PATH_LEN, "%s/%s", dir_name, UID);
+            snprintf(client_dir, MAX_PATH_LEN, "%s/%s", dir_name, UID);
 
             char offset_file_2[MAX_PATH_LEN];
             snprintf(offset_file_2, MAX_PATH_LEN, "%s/%s", client_dir, topic->name);
@@ -509,7 +505,6 @@ int main(int argc, char *argv[])
         }
 
         // crea el thread de service
-        // printf("BROKER-> Aceptada conexión con FD-> %d\n", s_conec);
         thread_info *thinf = malloc(sizeof(thread_info));
         thinf->socket = s_conec;
         if (pthread_create(&thid, &atrib_th, service, thinf) < 0)

@@ -65,7 +65,6 @@ static int crear_conexion()
         perror("Error initializing socket client");
         return -1;
     }
-    // printf("CLIENT-> Nueva conexión en FD-> %d\n", client_fd);
     return 0;
 }
 
@@ -142,11 +141,6 @@ static void receive_remaining_data(int response_size, void *msg)
         else
         {
             total_received += bytes_received;
-            // printf("Recibido -> [ ");
-            // for(int i=0; i<total_received; i++){
-            //     printf("%c, ", buffer[i]);
-            // }
-            // puts("]");
         }
     }
 }

@@ -44,11 +44,12 @@ make
 
 # Check if make command was successful
 if [ $? -eq 0 ]; then
-  uid="$(dbus-uuidgen)"
+  #uid="$(dbus-uuidgen)"
+  uid=cliente
   if [ "$1" = "-g" ]; then
     gdb -x ./test $uid
   elif [ "$1" = "-s" ]; then
-    strace -f -o client.log ./test $uid
+    strace -f -o $uid.log ./test $uid
   elif [ "$1" = "-v" ]; then
     valgrind -s ./test $uid
   elif [ $# -eq 0 ]; then
