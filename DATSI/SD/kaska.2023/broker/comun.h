@@ -9,5 +9,7 @@
 #define STRING_MAX ((1 << 16) - 2)
 #define MAX_PATH_LEN 256
 
+#define MAX_FILE_LEN 256
+
 
 #endif // _COMUN_H
