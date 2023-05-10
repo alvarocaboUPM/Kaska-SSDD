@@ -377,7 +377,7 @@ void *service(void *arg)
             if (client_dir[0] == '\0')
             {
                 snprintf(client_dir, MAX_PATH_LEN, "%s/%s", dir_name, UID);
-                if (mkdir(client_dir, 0777)== -1)
+                if (mkdir(client_dir, 0777) == -1)
                     perror("Failed to create client directory");
             }
 
@@ -414,11 +414,7 @@ void *service(void *arg)
                 break;
 
             if (client_dir[0] == '\0')
-            {
-                response = -1;
-                fprintf(stderr,"Directory doesnt exists");
-                break;
-            }
+                snprintf(client_dir, MAX_PATH_LEN, "%s/%s", dir_name, UID);
 
             char offset_file_2[MAX_PATH_LEN];
             snprintf(offset_file_2, MAX_PATH_LEN, "%s/%s", client_dir, topic->name);
@@ -430,8 +426,8 @@ void *service(void *arg)
                 response = -1;
                 break;
             }
-            
-            fscanf(fp,"%d", &response);
+
+            fscanf(fp, "%d", &response);
             fclose(fp);
             break;
         default:
