@@ -23,6 +23,7 @@
 #include "queue.h"
 #include <stdbool.h>
 #include <dirent.h>
+#include <byteswap.h>
 
 //========GLOBAL VARIABLES & STRUCTS==========
 
@@ -238,8 +239,8 @@ void *service(void *arg)
     int code, response;
     thread_info *thinf = arg;
     bool onPolling = false;
-    
-    char client_dir[MAX_PATH_LEN]={'\0'};
+
+    char client_dir[MAX_PATH_LEN] = {'\0'};
 
     while (1)
     {
@@ -373,14 +374,11 @@ void *service(void *arg)
             offset = ntohl(offset);
 
             // Subdirectorio
-            if (client_dir[0]=='\0')
+            if (client_dir[0] == '\0')
             {
                 snprintf(client_dir, MAX_PATH_LEN, "%s/%s", dir_name, UID);
-                if ((response = mkdir(client_dir, 0777)) == -1)
-                {
+                if (mkdir(client_dir, 0777)== -1)
                     perror("Failed to create client directory");
-                    break;
-                }
             }
 
             // Offset_file
@@ -415,22 +413,25 @@ void *service(void *arg)
             if (response != 0)
                 break;
 
-            if (client_dir[0]=='\0')
+            if (client_dir[0] == '\0')
+            {
                 response = -1;
-            break;
+                fprintf(stderr,"Directory doesnt exists");
+                break;
+            }
 
-            if (offset_file[0]=='\0')
-                snprintf(offset_file, MAX_PATH_LEN, "%s/%s", client_dir, topic->name);
+            char offset_file_2[MAX_PATH_LEN];
+            snprintf(offset_file_2, MAX_PATH_LEN, "%s/%s", client_dir, topic->name);
 
-            FILE *fp = fopen(offset_file, "r");
+            FILE *fp = fopen(offset_file_2, "r");
             if (!fp)
             {
                 perror("Failed to create offset file");
                 response = -1;
                 break;
             }
-
-            fread(&response, sizeof(int), 1, fp);
+            
+            fscanf(fp,"%d", &response);
             fclose(fp);
             break;
         default:
