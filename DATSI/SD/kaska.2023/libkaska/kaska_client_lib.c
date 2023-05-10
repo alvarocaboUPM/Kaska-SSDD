@@ -518,5 +518,39 @@ int commited(char *client, char *topic)
 {
     if (crear_conexion() < 0)
         return -1;
-    return 0;
+    
+     if (crear_conexion() < 0)
+        return -1;
+
+    int op_code = htonl(7);
+    struct iovec iov[5];
+    // op code
+    iov[0].iov_base = &op_code;
+    iov[0].iov_len = sizeof(op_code);
+    // size of topic name
+    int topic_len = strlen(topic);
+    int arg_size = htonl(topic_len);
+    iov[1].iov_base = &arg_size;
+    iov[1].iov_len = sizeof(arg_size);
+    // topic name
+    iov[2].iov_base = topic;
+    iov[2].iov_len = topic_len;
+    // size of UID
+    int client_len = strlen(client);
+    int arg_size_2 = htonl(client_len);
+    iov[3].iov_base = &arg_size_2;
+    iov[3].iov_len = sizeof(arg_size_2);
+    // UID
+    iov[4].iov_base = client;
+    iov[4].iov_len = client_len;
+
+    if (writev(client_fd, iov, 5) < 0)
+    {
+        perror("error getting msg length");
+        close(client_fd);
+        exit(EXIT_FAILURE);
+    }
+    int response;
+    recv(client_fd, &response, sizeof(response), MSG_WAITALL);
+    return response;
 }

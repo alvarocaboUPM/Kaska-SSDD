@@ -22,6 +22,7 @@
 #include "map.h"
 #include "queue.h"
 #include <stdbool.h>
+#include <dirent.h>
 
 //========GLOBAL VARIABLES & STRUCTS==========
 
@@ -238,7 +239,7 @@ void *service(void *arg)
     thread_info *thinf = arg;
     bool onPolling = false;
     
-    char client_dir[MAX_PATH_LEN];
+    char client_dir[MAX_PATH_LEN]={'\0'};
 
     while (1)
     {
@@ -253,7 +254,7 @@ void *service(void *arg)
         Topic *topic;
         int offset;
         Message *msg;
-        char *topic_name;
+        char *topic_name, *UID;
 
         switch (code)
         {
@@ -364,7 +365,7 @@ void *service(void *arg)
                 break;
             }
             // UID
-            char *UID = get_topic_name(thinf->socket, &response);
+            UID = get_topic_name(thinf->socket, &response);
             if (response != 0)
                 break;
             // offset
@@ -372,7 +373,7 @@ void *service(void *arg)
             offset = ntohl(offset);
 
             // Subdirectorio
-            if (!client_dir)
+            if (client_dir[0]=='\0')
             {
                 snprintf(client_dir, MAX_PATH_LEN, "%s/%s", dir_name, UID);
                 if ((response = mkdir(client_dir, 0777)) == -1)
@@ -396,7 +397,41 @@ void *service(void *arg)
 
             fprintf(offset_fp, "%d", offset);
             fclose(offset_fp);
-            
+            break;
+        // comitted
+        case 7:
+            topic_name = get_topic_name(thinf->socket, &response);
+            if (response != 0)
+                break;
+            topic = map_get(table_topics, topic_name, &response);
+            if (response != 0)
+            {
+                // depura el socket
+                purge_socket(thinf->socket);
+                break;
+            }
+            // UID
+            UID = get_topic_name(thinf->socket, &response);
+            if (response != 0)
+                break;
+
+            if (client_dir[0]=='\0')
+                response = -1;
+            break;
+
+            if (offset_file[0]=='\0')
+                snprintf(offset_file, MAX_PATH_LEN, "%s/%s", client_dir, topic->name);
+
+            FILE *fp = fopen(offset_file, "r");
+            if (!fp)
+            {
+                perror("Failed to create offset file");
+                response = -1;
+                break;
+            }
+
+            fread(&response, sizeof(int), 1, fp);
+            fclose(fp);
             break;
         default:
             fprintf(stderr, "Operation not allowed with code %d\n", code);
