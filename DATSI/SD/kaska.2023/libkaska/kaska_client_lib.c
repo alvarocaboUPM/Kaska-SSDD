@@ -1,17 +1,16 @@
 #include "comun.h"
 #include "kaska.h"
 #include "map.h"
-
+#include <sys/uio.h>
+#include <string.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <sys/uio.h>
 #include <unistd.h>
 #include <stdbool.h>
 
@@ -80,6 +79,56 @@ static void free_entry(void *k, void *v)
         free(v);
 }
 
+static void print_subbed_map()
+{
+    map_position *p_aux = map_alloc_position(subbed_table);
+    map_iter *it = map_iter_init(subbed_table, p_aux);
+    char *key;
+    Offset *o;
+    int i = 0;
+
+    puts("");
+    for (; it && map_iter_has_next(it); map_iter_next(it))
+    {
+        map_iter_value(it, (const void **)&key, (void **)&o);
+        printf("%d:después de subscribe: nombre %s offset %d\n", i++, key, o->o);
+    }
+    map_iter_exit(it);
+    map_free_position(p_aux);
+}
+
+/**
+ * @brief Message constructor
+ * @return Message* new topic
+ */
+Message *new_msg(int size, char *topic_name)
+{
+    Message *msg = malloc(sizeof(struct Message));
+    msg->topic_name = topic_name;
+    msg->body = malloc(size);
+    msg->size = size;
+    return msg;
+}
+
+/**
+ * @brief Destroys a Message reference
+ */
+void free_msg(Message *msg)
+{
+    free(msg->body);
+    free(msg);
+}
+
+// Debug functions
+void print_msg(void *ev)
+{
+    Message *msg = ev;
+    fprintf(stderr, "\nIMPRIMIENDO MENSAJE\nTEMA: %s\nSIZE: %d\nBODY: %p\n",
+            msg->topic_name,
+            msg->size,
+            msg->body);
+}
+
 /**
  * @brief Checks for message content
  * @param off queue offset in the topic where trying to find a message
@@ -113,53 +162,14 @@ static int map_polling(char *topic, Offset *off)
         close(client_fd);
         exit(EXIT_FAILURE);
     }
+
     int response;
-    recv(client_fd, &response, sizeof(response), 0);
+    recv(client_fd, &response, sizeof(int), MSG_WAITALL);
+    // if(response!=-1){
+
+    //     //print_msg(msg);
+    // }
     return response;
-}
-
-static void receive_remaining_data(int response_size, void *msg)
-{
-    char *buffer = (char *)msg;
-    int total_received = 0;
-    int bytes_received;
-
-    // loop until all data is received
-    while (total_received < response_size)
-    {
-        bytes_received = recv(client_fd, buffer + total_received, response_size - total_received, 0);
-        if (bytes_received == -1)
-        {
-            perror("recv");
-            exit(1);
-        }
-        else if (bytes_received == 0)
-        {
-            printf("Connection closed by peer\n");
-            exit(1);
-        }
-        else
-        {
-            total_received += bytes_received;
-        }
-    }
-}
-static void print_subbed_map()
-{
-    map_position *p_aux = map_alloc_position(subbed_table);
-    map_iter *it = map_iter_init(subbed_table, p_aux);
-    char *key;
-    Offset *o;
-    int i = 0;
-
-    puts("");
-    for (; it && map_iter_has_next(it); map_iter_next(it))
-    {
-        map_iter_value(it, (const void **)&key, (void **)&o);
-        printf("%d:después de subscribe: nombre %s offset %d\n", i++, key, o->o);
-    }
-    map_iter_exit(it);
-    map_free_position(p_aux);
 }
 
 int create_topic(char *topic)
@@ -366,7 +376,7 @@ int unsubscribe(void)
 {
     if (crear_conexion() < 0)
         return -1;
-    if (subbed_table == NULL || map_size(subbed_table) ==0 || map_destroy(subbed_table, free_entry) < 0)
+    if (subbed_table == NULL || map_size(subbed_table) == 0 || map_destroy(subbed_table, free_entry) < 0)
         return -1;
     subbed_table = NULL;
     return 0;
@@ -415,8 +425,7 @@ int poll(char **topic, void **msg)
     char *key;
     Offset *o;
     int res;
-    char *tmp_topic = NULL;
-    void *tmp_msg = NULL;
+    Message *m;
 
     if ((it = map_iter_init(subbed_table, p)) == NULL)
     {
@@ -433,30 +442,16 @@ int poll(char **topic, void **msg)
 
         if ((res = map_polling(key, o)) >= 0)
         {
-            tmp_topic = strdup(key);
-            tmp_msg = malloc(res);
-            if (tmp_msg != NULL)
-            {
-                receive_remaining_data(res, tmp_msg);
-                map_iter_next(it);
-                p = map_iter_exit(it);
-                *topic = tmp_topic;
-                *msg = tmp_msg;
-                o->o++;
-                return res;
-            }
-            else
-            {
-                map_iter_next(it);
-                p = map_iter_exit(it);
-                free(tmp_topic);
-                return -1;
-            }
+            m = new_msg(res, key);
+            recv(client_fd, m->body, res, MSG_WAITALL);
+            map_iter_next(it);
+            p = map_iter_exit(it);
+            *topic = m->topic_name;
+            *msg = m->body;
+            o->o++;
+            return res;
         }
     }
-
-    free(tmp_topic);
-    free(tmp_msg);
     return 0;
 }
 
@@ -512,8 +507,8 @@ int commited(char *client, char *topic)
 {
     if (crear_conexion() < 0)
         return -1;
-    
-     if (crear_conexion() < 0)
+
+    if (crear_conexion() < 0)
         return -1;
 
     int op_code = htonl(7);

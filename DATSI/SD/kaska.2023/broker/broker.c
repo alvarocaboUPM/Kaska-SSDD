@@ -7,23 +7,23 @@
 
 //=========INCLUDES=========
 
-#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <stdio.h>
 #include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
 #include "comun.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/uio.h>
+#include <string.h>
 #include "map.h"
 #include "queue.h"
 #include <stdbool.h>
 #include <dirent.h>
-#include <byteswap.h>
+
 
 //========GLOBAL VARIABLES & STRUCTS==========
 
@@ -49,14 +49,7 @@ typedef struct Topic
     int offset;
 } Topic;
 
-// Message struct
-typedef struct Message
-{
-    void *body;
-    int size;
-    char *topic_name;
 
-} Message;
 
 //========STATIC FUNCTIONS==========
 
@@ -123,7 +116,7 @@ Topic *new_topic(char *name)
  * @brief Message constructor
  * @return Message* new topic
  */
-Message *new_msg(int size, char *topic_name)
+Message* new_msg(int size, char *topic_name)
 {
     Message *msg = malloc(sizeof(struct Message));
     msg->topic_name = topic_name;
@@ -346,11 +339,7 @@ void *service(void *arg)
             offset = ntohl(offset);
             // Busca el mensaje
             msg = queue_get(topic->messages, offset, &response);
-            if (response != -1)
-            {
-                response = msg->size;
-                onPolling = true;
-            }
+            onPolling = true;
             break;
         // commit
         case 6:
@@ -429,19 +418,25 @@ void *service(void *arg)
         default:
             fprintf(stderr, "Operation not allowed with code %d\n", code);
         }
-        // envía un code como respuesta
+        // envía un mensaje como respuesta
         if (onPolling)
         {
             onPolling = false;
-            int s = sizeof(int) + msg->size;
+            struct iovec iov[2];
+            //msg size
+            int msg_size_nl = htonl(msg->size);
+            iov[0].iov_base = &msg->size;
+            iov[0].iov_len = sizeof(msg_size_nl);
+            // msg body
+            iov[1].iov_base = msg->body;
+            iov[1].iov_len = msg->size;
+            if (writev(thinf->socket, iov, 2) < 0)
+            {
+                perror("error publishing a message");
+                close(thinf->socket);
+                exit(EXIT_FAILURE);
+            }
 
-            void *meta_msg = malloc(s);
-            memcpy(meta_msg, &response, sizeof(int));
-
-            char *original_bytes = (char *)msg->body;
-            memcpy(meta_msg + sizeof(int), original_bytes, msg->size);
-
-            send(thinf->socket, meta_msg, s, 0);
         }
         else
             send(thinf->socket, &response, sizeof(response), 0);

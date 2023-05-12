@@ -2,5 +2,20 @@
     "yaml.schemas": {
         "file:///home/ubuntu/.vscode-server/extensions/atlassian.atlascode-2.10.12/resources/schemas/pipelines-schema.json": "bitbucket-pipelines.yml",
         "https://json.schemastore.org/github-workflow.json": "file:///home/varo/UPM/3ero/SSDD/Individual/.github/workflows/deploy.yml"
+    },
+    "files.associations": {
+        "*.embeddedhtml": "html",
+        "*.pl": "ciao",
+        "initializer_list": "c",
+        "utility": "c",
+        "typeinfo": "c",
+        "socket.h": "c",
+        "map.h": "c",
+        "in.h": "c",
+        "comun.h": "c",
+        "string.h": "c",
+        "uio.h": "c",
+        "stdbool.h": "c",
+        "signal.h": "c"
     }
 }
