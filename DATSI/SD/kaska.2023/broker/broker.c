@@ -339,7 +339,8 @@ void *service(void *arg)
             offset = ntohl(offset);
             // Busca el mensaje
             msg = queue_get(topic->messages, offset, &response);
-            onPolling = true;
+            if(response!=-1)
+                onPolling = true;
             break;
         // commit
         case 6:
@@ -427,16 +428,17 @@ void *service(void *arg)
             int msg_size_nl = htonl(msg->size);
             iov[0].iov_base = &msg->size;
             iov[0].iov_len = sizeof(msg_size_nl);
+            //printf("Envio size-> %d\n", msg->size);
             // msg body
             iov[1].iov_base = msg->body;
             iov[1].iov_len = msg->size;
+            //printf("Envio mensaje-> %s\n", (char*)msg->body);
             if (writev(thinf->socket, iov, 2) < 0)
             {
                 perror("error publishing a message");
                 close(thinf->socket);
                 exit(EXIT_FAILURE);
             }
-
         }
         else
             send(thinf->socket, &response, sizeof(response), 0);

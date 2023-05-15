@@ -123,10 +123,10 @@ void free_msg(Message *msg)
 void print_msg(void *ev)
 {
     Message *msg = ev;
-    fprintf(stderr, "\nIMPRIMIENDO MENSAJE\nTEMA: %s\nSIZE: %d\nBODY: %p\n",
+    fprintf(stderr, "\nIMPRIMIENDO MENSAJE\nTEMA: %s\nSIZE: %d\nBODY: %s\n",
             msg->topic_name,
             msg->size,
-            msg->body);
+            (char *)msg->body);
 }
 
 /**
@@ -165,10 +165,6 @@ static int map_polling(char *topic, Offset *off)
 
     int response;
     recv(client_fd, &response, sizeof(int), MSG_WAITALL);
-    // if(response!=-1){
-
-    //     //print_msg(msg);
-    // }
     return response;
 }
 
@@ -415,7 +411,7 @@ int poll(char **topic, void **msg)
     if (crear_conexion() < 0)
         return -1;
 
-    if (!subbed_table)
+    if (subbed_table == NULL)
         return 0;
 
     if (p == NULL)
@@ -426,11 +422,17 @@ int poll(char **topic, void **msg)
     Offset *o;
     int res;
     Message *m;
+    char *tmp_topic = NULL;
 
     if ((it = map_iter_init(subbed_table, p)) == NULL)
     {
-        fprintf(stderr, "Invalid position for init");
-        return -1;
+        //tries to allocated the position after unsub
+        p = map_alloc_position(subbed_table);
+        if ((it = map_iter_init(subbed_table, p)) == NULL)
+        {
+            fprintf(stderr, "Invalid position for init\n");
+            return -1;
+        }
     }
 
     for (res = 0; res <= 0 && it && map_iter_has_next(it); map_iter_next(it))
@@ -442,16 +444,19 @@ int poll(char **topic, void **msg)
 
         if ((res = map_polling(key, o)) >= 0)
         {
-            m = new_msg(res, key);
+            tmp_topic = strdup(key);
+            m = new_msg(res, tmp_topic);
             recv(client_fd, m->body, res, MSG_WAITALL);
             map_iter_next(it);
             p = map_iter_exit(it);
-            *topic = m->topic_name;
+            *topic = tmp_topic;
             *msg = m->body;
             o->o++;
             return res;
         }
     }
+
+    free(tmp_topic);
     return 0;
 }
 
